@@ -1,74 +1,153 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use ink_env::Environment;
 use ink_lang as ink;
 
-#[ink::contract]
-mod iris_asset_exchange {
+/// This is an example of how an ink! contract may call the Substrate
+/// runtime function `RandomnessCollectiveFlip::random_seed`. See the
+/// file `runtime/chain-extension-example.rs` for that implementation.
+///
+/// Here we define the operations to interact with the Substrate runtime.
+#[ink::chain_extension]
+pub trait Iris {
+    type ErrorCode = IrisErr;
 
-    /// Defines the storage of your contract.
-    /// Add new fields to the below struct in order
-    /// to add new static storage fields to your contract.
+    /// Note: this gives the operation a corresponding `func_id` (1101 in this case),
+    /// and the chain-side chain extension will get the `func_id` to do further operations.
+    #[ink(extension = 1101, returns_result = false)]
+    fn transfer_assets(key: &[u8; 32]) -> [u8; 32];
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum IrisErr {
+    FailTransferAsset,
+}
+
+impl ink_env::chain_extension::FromStatusCode for IrisErr {
+    fn from_status_code(status_code: u32) -> Result<(), Self> {
+        match status_code {
+            0 => Ok(()),
+            1 => Err(Self::FailTransferAsset),
+            _ => panic!("encountered unknown status code"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum CustomEnvironment {}
+
+impl Environment for CustomEnvironment {
+    const MAX_EVENT_TOPICS: usize =
+        <ink_env::DefaultEnvironment as Environment>::MAX_EVENT_TOPICS;
+
+    type AccountId = <ink_env::DefaultEnvironment as Environment>::AccountId;
+    type Balance = <ink_env::DefaultEnvironment as Environment>::Balance;
+    type Hash = <ink_env::DefaultEnvironment as Environment>::Hash;
+    type BlockNumber = <ink_env::DefaultEnvironment as Environment>::BlockNumber;
+    type Timestamp = <ink_env::DefaultEnvironment as Environment>::Timestamp;
+
+    type ChainExtension = Iris;
+}
+
+#[ink::contract(env = crate::CustomEnvironment)]
+mod iris_asset_exchange {
+    use ink_lang as ink;
+    use super::IrisErr;
+
+    /// Defines the storage of our contract.
+    ///
+    /// Here we store the random seed fetched from the chain.
     #[ink(storage)]
     pub struct IrisAssetExchange {
-        /// Stores a single `bool` value on the storage.
-        value: bool,
+        // value: [u8; 32],
+    }
+
+    #[ink(event)]
+    pub struct AssetTransferSuccess {
+        // #[ink(topic)]
+        // new: [u8; 32],
     }
 
     impl IrisAssetExchange {
         /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
-        pub fn new(init_value: bool) -> Self {
-            Self { value: init_value }
+        pub fn new() -> Self {
+            Self { }
         }
 
         /// Constructor that initializes the `bool` value to `false`.
         ///
-        /// Constructors can delegate to other constructors.
+        /// Constructors may delegate to other constructors.
         #[ink(constructor)]
         pub fn default() -> Self {
-            Self::new(Default::default())
+            // Self::new(Default::default())
+            Self::new()
         }
 
-        /// A message that can be called on instantiated contracts.
-        /// This one flips the value of the stored `bool` from `true`
-        /// to `false` and vice versa.
+        /// Seed a random value by passing some known argument `subject` to the runtime's
+        /// random source. Then, update the current `value` stored in this contract with the
+        /// new random value.
         #[ink(message)]
-        pub fn flip(&mut self) {
-            self.value = !self.value;
-        }
-
-        /// Simply returns the current value of our `bool`.
-        #[ink(message)]
-        pub fn get(&self) -> bool {
-            self.value
+        pub fn transfer_asset(&self, key: [u8; 32]) -> Result<(), IrisErr> {
+            let caller = self.env().caller();
+            // Get the on-chain random seed
+            // let new_random = self.env().extension().fetch_random(subject)?;
+            // self.value = new_random;
+            // Emit the `RandomUpdated` event when the random seed
+            // is successfully fetched.
+            // self.env().emit_event(RandomUpdated { new: new_random });
+            self.env().emit_event(AssetTransferSuccess { });
+            Ok(())
         }
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
-    /// module and test functions are marked with a `#[test]` attribute.
-    /// The below code is technically just normal Rust code.
     #[cfg(test)]
     mod tests {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
-
-        /// Imports `ink_lang` so we can use `#[ink::test]`.
         use ink_lang as ink;
 
-        /// We test if the default constructor does its job.
-        #[ink::test]
-        fn default_works() {
-            let iris_asset_exchange = IrisAssetExchange::default();
-            assert_eq!(iris_asset_exchange.get(), false);
-        }
+        // /// We test if the default constructor does its job.
+        // #[ink::test]
+        // fn default_works() {
+        //     let rand_extension = RandExtension::default();
+        //     assert_eq!(rand_extension.get(), [0; 32]);
+        // }
 
-        /// We test a simple use case of our contract.
-        #[ink::test]
-        fn it_works() {
-            let mut iris_asset_exchange = IrisAssetExchange::new(false);
-            assert_eq!(iris_asset_exchange.get(), false);
-            iris_asset_exchange.flip();
-            assert_eq!(iris_asset_exchange.get(), true);
-        }
+        // #[ink::test]
+        // fn chain_extension_works() {
+        //     // given
+        //     struct MockedExtension;
+        //     impl ink_env::test::ChainExtension for MockedExtension {
+        //         /// The static function id of the chain extension.
+        //         fn func_id(&self) -> u32 {
+        //             1101
+        //         }
+
+        //         /// The chain extension is called with the given input.
+        //         ///
+        //         /// Returns an error code and may fill the `output` buffer with a
+        //         /// SCALE encoded result. The error code is taken from the
+        //         /// `ink_env::chain_extension::FromStatusCode` implementation for
+        //         /// `RandomReadErr`.
+        //         fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+        //             let ret: [u8; 32] = [1; 32];
+        //             scale::Encode::encode_to(&ret, output);
+        //             0
+        //         }
+        //     }
+        //     ink_env::test::register_chain_extension(MockedExtension);
+        //     let mut rand_extension = RandExtension::default();
+        //     assert_eq!(rand_extension.get(), [0; 32]);
+
+        //     // when
+        //     rand_extension.update([0_u8; 32]).expect("update must work");
+
+        //     // then
+        //     assert_eq!(rand_extension.get(), [1; 32]);
+        // }
     }
 }
