@@ -12,6 +12,10 @@ cargo +nightly contract build
 
 see here for additional info and commands to get started: https://docs.substrate.io/tutorials/v3/ink-workshop/pt1/#creating-an-ink-project
 
+## Deployment
+
+TODO
+
 ## Iris Asset Exchange
 
 A decentralized marketplace for exchanging tokens for assets. That is, a marketplace for buying and selling access to and ownership of data.

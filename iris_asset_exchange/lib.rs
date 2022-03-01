@@ -3,19 +3,13 @@
 use ink_env::Environment;
 use ink_lang as ink;
 
-/// This is an example of how an ink! contract may call the Substrate
-/// runtime function `RandomnessCollectiveFlip::random_seed`. See the
-/// file `runtime/chain-extension-example.rs` for that implementation.
-///
-/// Here we define the operations to interact with the Substrate runtime.
+/// Functions to interact with the Iris runtime as defined in runtime/src/lib.rs
 #[ink::chain_extension]
 pub trait Iris {
     type ErrorCode = IrisErr;
 
-    /// Note: this gives the operation a corresponding `func_id` (1101 in this case),
-    /// and the chain-side chain extension will get the `func_id` to do further operations.
-    #[ink(extension = 1101, returns_result = false)]
-    fn transfer_assets(key: &[u8; 32]) -> [u8; 32];
+    #[ink(extension = 1, returns_result = false)]
+    fn transfer_asset(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -53,7 +47,7 @@ impl Environment for CustomEnvironment {
 
 #[ink::contract(env = crate::CustomEnvironment)]
 mod iris_asset_exchange {
-    use ink_lang as ink;
+    // use ink_lang as ink;
     use super::IrisErr;
 
     /// Defines the storage of our contract.
@@ -90,14 +84,13 @@ mod iris_asset_exchange {
         /// random source. Then, update the current `value` stored in this contract with the
         /// new random value.
         #[ink(message)]
-        pub fn transfer_asset(&self, key: [u8; 32]) -> Result<(), IrisErr> {
+        pub fn transfer_asset(&self, target: AccountId, asset_id: u32, amount: u64) -> Result<(), IrisErr> {
             let caller = self.env().caller();
-            // Get the on-chain random seed
-            // let new_random = self.env().extension().fetch_random(subject)?;
-            // self.value = new_random;
-            // Emit the `RandomUpdated` event when the random seed
-            // is successfully fetched.
-            // self.env().emit_event(RandomUpdated { new: new_random });
+            self.env()
+                .extension()
+                .transfer_asset(
+                    caller, target, asset_id, amount,
+                )?;
             self.env().emit_event(AssetTransferSuccess { });
             Ok(())
         }
