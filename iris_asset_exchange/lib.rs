@@ -52,10 +52,10 @@ mod iris_asset_exchange {
 
     /// Defines the storage of our contract.
     ///
-    /// Here we store the random seed fetched from the chain.
     #[ink(storage)]
     pub struct IrisAssetExchange {
-        // value: [u8; 32],
+        // <(owner, asset_id, price), amount>
+        // regsitry: ink_storage::Mapping<(AccountId, u32, u32), u64>,
     }
 
     #[ink(event)]
@@ -65,8 +65,7 @@ mod iris_asset_exchange {
     }
 
     impl IrisAssetExchange {
-        /// Constructor that initializes the `bool` value to the given `init_value`.
-        #[ink(constructor)]
+        #[ink(constructor, payable)]
         pub fn new() -> Self {
             Self { }
         }
@@ -80,9 +79,19 @@ mod iris_asset_exchange {
             Self::new()
         }
 
-        /// Seed a random value by passing some known argument `subject` to the runtime's
-        /// random source. Then, update the current `value` stored in this contract with the
-        /// new random value.
+        // /// Provide pricing for a static amount of owned assets
+        // #[ink(message)]
+        // pub fn publish_sale(&self, asset_id: u32, price: u32) -> Result<(), IrisErr> {
+        //     let caller = self.env().caller();
+        //     // should this handle minting too? could be useful
+        //     // transfer assets to contract address .... which would only 
+        //     // exist after deployment... so idk how to do that yet
+        //     // insert to storage
+        //     self.registry.insert((caller, asset_id, price), amount);
+        //     Ok(())
+        // }
+
+        /// Transfer some amount of owned assets to another address
         #[ink(message)]
         pub fn transfer_asset(&self, target: AccountId, asset_id: u32, amount: u64) -> Result<(), IrisErr> {
             let caller = self.env().caller();
@@ -103,12 +112,12 @@ mod iris_asset_exchange {
         use super::*;
         use ink_lang as ink;
 
-        // /// We test if the default constructor does its job.
-        // #[ink::test]
-        // fn default_works() {
-        //     let rand_extension = RandExtension::default();
-        //     assert_eq!(rand_extension.get(), [0; 32]);
-        // }
+        /// We test if the default constructor does its job.
+        #[ink::test]
+        fn default_works() {
+            let iris_asset_exchange = IrisAssetExchange::default();
+            // assert_eq!(rand_extension.get(), [0; 32]);
+        }
 
         // #[ink::test]
         // fn chain_extension_works() {
