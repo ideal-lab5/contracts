@@ -73,7 +73,7 @@ mod iris_asset_exchange {
         /// Constructor that initializes the `bool` value to `false`.
         ///
         /// Constructors may delegate to other constructors.
-        #[ink(constructor)]
+        #[ink(constructor, payable)]
         pub fn default() -> Self {
             // Self::new(Default::default())
             Self::new()
