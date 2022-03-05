@@ -13,6 +13,12 @@ pub trait Iris {
 
     #[ink(extension = 2, returns_result = false)]
     fn mint(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
+
+    #[ink(extension = 3, returns_result = false)]
+    fn lock(amount: u64) -> [u8; 32];
+
+    #[ink(extension = 4, returns_result = false)]
+    fn unlock_and_transfer(target: ink_env::AccountId) -> [u8; 32];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -99,22 +105,35 @@ mod iris_asset_exchange {
                 .mint(
                     caller.clone(), self.env().account_id(), asset_id.clone(), amount.clone(),
                 ).map_err(|_| {});
-
+            // Q: Should there be an existential deposit for this?
             self.registry.insert((&caller, &asset_id), &price);
             self.env().emit_event(NewTokenSaleSuccess { });
         }
 
-        // #[ink(message)]
-        // pub fn purchase_tokens(&mut self, owner: AccountId, asset_id: u32, amount: u64) {
-        //     // calculate total cost
-        //     // let total_cost = amount * self.registry.get(&owner, &asset_id);
-        //     // caller locks total_cost
-
-        //     // contract grants tokens to caller
-        //     // caller send tokens to owner
-        // }
+        #[ink(message)]
+        pub fn purchase_tokens(&mut self, owner: AccountId, asset_id: u32, amount: u64) {
+            let caller = self.env().caller();
+            // calculate total cost
+            if let Some(price) = self.registry.get((&owner, &asset_id)) {
+                let total_cost = amount * price;
+                // caller locks total_cost
+                self.env().extension().lock(total_cost).map_err(|_| {});
+                // contract grants tokens to caller
+                self.env()
+                    .extension()
+                    .transfer_asset(
+                        self.env().account_id(), caller, asset_id, amount,
+                    ).map_err(|_| {});
+                self.env().emit_event(AssetTransferSuccess { });
+                // caller send tokens to owner
+                self.env().extension().unlock_and_transfer(owner).map_err(|_| {});
+            } else {
+                // TODO: ERROR
+            }
+        }
 
         /// Transfer some amount of owned assets to another address
+        /// TESTING ONLY: REMOVE ME 
         #[ink(message)]
         pub fn transfer_asset(&mut self, target: AccountId, asset_id: u32, amount: u64) {
             let caller = self.env().caller();
