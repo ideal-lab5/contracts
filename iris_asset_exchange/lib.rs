@@ -131,19 +131,6 @@ mod iris_asset_exchange {
                 // TODO: ERROR
             }
         }
-
-        /// Transfer some amount of owned assets to another address
-        /// TESTING ONLY: REMOVE ME 
-        #[ink(message)]
-        pub fn transfer_asset(&mut self, target: AccountId, asset_id: u32, amount: u64) {
-            let caller = self.env().caller();
-            self.env()
-                .extension()
-                .transfer_asset(
-                    caller, target, asset_id, amount,
-                ).map_err(|_| {});
-            self.env().emit_event(AssetTransferSuccess { });
-        }
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
