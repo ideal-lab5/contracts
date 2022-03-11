@@ -4,7 +4,7 @@ A collection of smart contracts used on the [iris blockchain](https://github.com
 
 ## Setup
 
-Follow the [ink! documentation](https://paritytech.github.io/ink-docs/) for a complete guide on getting started.
+Follow the [ink! documentation](https://paritytech.github.io/ink-docs/getting-started/setup) for a complete guide on getting started.
 
 To compile a wasm blob and metadata for a contract, navigate to the contract's root directory and run:
 
@@ -12,11 +12,36 @@ To compile a wasm blob and metadata for a contract, navigate to the contract's r
 cargo +nightly contract build
 ```
 
+### Note on Binaryen/wasm-opt
+
+If your package manager doesn't have binaryen versions >= 99, then:
+
+- Download the latest version here: https://github.com/WebAssembly/binaryen/releases
+
+- follow these instrutions to install:
+
+``` bash
+# unzip the tarball
+sudo tar xzvf binaryen-version_100-x86_64-linux.tar.gz
+# update permissions
+chmod +x binaryen-version_100
+# move to /opt
+sudo mv binaryen-version_100 /opt/
+# navigate to /opt
+cd /opt
+# make it executable
+chmod +x binaryen-version_100
+# add symbolic link to /usr/bin
+sudo ln -s /opt/binaryen-version_100/bin/wasm-opt /usr/bin/wasm-opt
+```
+
+Verify the installation by running `wasm-opt --version`. If the command executes and the printed version matches the downloaded version, then the installation is complete.
+
 ## Deployment
 
-The simplest method to deploy contracts is to use the polkadotjs ui. After starting an Iris node, navigate to the contracts tab and follow the instructions [here](https://docs.substrate.io/tutorials/v3/ink-workshop/pt1/#creating-an-ink-project).
+The simplest method to deploy contracts is to use the polkadot.js ui. After starting an Iris node, navigate to the contracts tab and follow the instructions [here](https://docs.substrate.io/tutorials/v3/ink-workshop/pt1/#creating-an-ink-project).
 
-## Modules (contracts)
+## Contracts
 
 ### Iris Asset Exchange
 
