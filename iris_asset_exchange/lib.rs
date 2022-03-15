@@ -9,10 +9,10 @@ pub trait Iris {
     type ErrorCode = IrisErr;
 
     #[ink(extension = 1, returns_result = false)]
-    fn transfer_asset(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
+    fn mint(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
 
     #[ink(extension = 2, returns_result = false)]
-    fn mint(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
+    fn transfer_asset(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
 
     #[ink(extension = 3, returns_result = false)]
     fn lock(amount: u64) -> [u8; 32];
@@ -96,19 +96,17 @@ mod iris_asset_exchange {
         }
 
         /// Provide pricing for a static amount of owned assets
-        #[ink(message)]
-        pub fn publish_token_sale(&mut self, asset_id: u32, price: u64, amount: u64) {
-            let caller = self.env().caller();
-            // mint tokens for the contract
-            self.env()
-                .extension()
-                .mint(
-                    caller.clone(), self.env().account_id(), asset_id.clone(), amount.clone(),
-                ).map_err(|_| {});
-            // Q: Should there be an existential deposit for this?
+         #[ink(message)]
+         pub fn publish_sale(&mut self, asset_id: u32, amount: u64, price: u64) {
+             let caller = self.env().caller();
+             self.env()
+                 .extension()
+                 .mint(
+                     caller, self.env().account_id(), asset_id, amount,
+                 ).map_err(|_| {});
             self.registry.insert((&caller, &asset_id), &price);
-            self.env().emit_event(NewTokenSaleSuccess { });
-        }
+             self.env().emit_event(AssetTransferSuccess { });
+         }
 
         #[ink(message)]
         pub fn purchase_tokens(&mut self, owner: AccountId, asset_id: u32, amount: u64) {
@@ -117,7 +115,7 @@ mod iris_asset_exchange {
             if let Some(price) = self.registry.get((&owner, &asset_id)) {
                 let total_cost = amount * price;
                 // caller locks total_cost
-                self.env().extension().lock(total_cost).map_err(|_| {});
+                // self.env().extension().lock(total_cost).map_err(|_| {});
                 // contract grants tokens to caller
                 self.env()
                     .extension()
@@ -126,11 +124,23 @@ mod iris_asset_exchange {
                     ).map_err(|_| {});
                 self.env().emit_event(AssetTransferSuccess { });
                 // caller send tokens to owner
-                self.env().extension().unlock_and_transfer(owner).map_err(|_| {});
+                // self.env().extension().unlock_and_transfer(owner).map_err(|_| {});
             } else {
                 // TODO: ERROR
             }
         }
+
+        // /// Transfer some amount of owned assets to another address
+        // #[ink(message)]
+        // pub fn transfer_asset(&mut self, target: AccountId, asset_id: u32, amount: u64) {
+        //     let caller = self.env().caller();
+        //     self.env()
+        //         .extension()
+        //         .transfer_asset(
+        //             caller, target, asset_id, amount,
+        //         ).map_err(|_| {});
+        //     self.env().emit_event(AssetTransferSuccess { });
+        // }
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
