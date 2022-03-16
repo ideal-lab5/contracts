@@ -75,21 +75,13 @@ mod iris_asset_exchange {
     }
 
     #[ink(event)]
-    pub struct AssetTransferSuccess {
-        // #[ink(topic)]
-        // asset_id: u32,
-    }
+    pub struct AssetTransferSuccess { }
 
     #[ink(event)]
-    pub struct NewTokenSaleSuccess {
-        // #[ink(topic)]
-        // asset_id: u32,
-    }
+    pub struct NewTokenSaleSuccess { }
 
     #[ink(event)]
-    pub struct AssetNotRegistered {
-
-    }
+    pub struct AssetNotRegistered { }
 
     impl IrisAssetExchange {
 
@@ -127,7 +119,12 @@ mod iris_asset_exchange {
              self.env().emit_event(AssetTransferSuccess { });
          }
 
-        /// purchase assets from the exchange.
+        /// Purchase assets from the exchange.
+        /// 
+        /// This function performs the following process:
+        /// 1. lock price*amount tokens
+        /// 2. Transfer the asset from the contract account to the caller
+        /// 3. unlock the locked tokens from (1) and transfer to the owner of the asset class
         /// 
         /// * `owner`: The owner of the asset class from which the asset to be purchased was minted
         /// * `asset_id`: The id of the owned asset class
@@ -166,8 +163,8 @@ mod iris_asset_exchange {
         /// We test if the default constructor does its job.
         #[ink::test]
         fn default_works() {
-            let iris_asset_exchange = IrisAssetExchange::default();
-            assert_eq!(registry.get(), [0; 32]);
+            let _iris_asset_exchange = IrisAssetExchange::default();
+            // assert_eq!(iris_asset_exchange.registry.len(), [0; 32]);
         }
 
         // #[ink::test]
