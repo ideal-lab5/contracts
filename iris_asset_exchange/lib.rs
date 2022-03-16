@@ -8,16 +8,16 @@ use ink_lang as ink;
 pub trait Iris {
     type ErrorCode = IrisErr;
 
+    #[ink(extension = 0, returns_result = false)]
+    fn transfer_asset(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
+
     #[ink(extension = 1, returns_result = false)]
     fn mint(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
 
     #[ink(extension = 2, returns_result = false)]
-    fn transfer_asset(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
-
-    #[ink(extension = 3, returns_result = false)]
     fn lock(amount: u64) -> [u8; 32];
 
-    #[ink(extension = 4, returns_result = false)]
+    #[ink(extension = 3, returns_result = false)]
     fn unlock_and_transfer(target: ink_env::AccountId) -> [u8; 32];
 }
 
@@ -25,13 +25,18 @@ pub trait Iris {
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum IrisErr {
     FailTransferAsset,
+    FailMintAssets,
+    FailLockCurrency,
+    FailUnlockCurrency,
 }
 
 impl ink_env::chain_extension::FromStatusCode for IrisErr {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
-            0 => Ok(()),
-            1 => Err(Self::FailTransferAsset),
+            0 => Err(Self::FailTransferAsset),
+            1 => Err(Self::FailMintAssets),
+            2 => Err(Self::FailLockCurrency),
+            3 => Err(Self::FailUnlockCurrency),
             _ => panic!("encountered unknown status code"),
         }
     }
@@ -81,21 +86,35 @@ mod iris_asset_exchange {
         // asset_id: u32,
     }
 
+    #[ink(event)]
+    pub struct AssetNotRegistered {
+
+    }
+
     impl IrisAssetExchange {
+
+        /// build a new  Iris Asset Exchange
         #[ink(constructor, payable)]
         pub fn new() -> Self {
             ink_lang::utils::initialize_contract(|_| {})
-            // Self { }
         }
 
-        /// Constructors may delegate to other constructors.
+        /// Default constructor
         #[ink(constructor, payable)]
         pub fn default() -> Self {
-            // Self::new(Default::default())
             Self::new()
         }
 
-        /// Provide pricing for a static amount of owned assets
+        /// Provide pricing for a static amount of assets.
+        /// 
+        /// This function mints new assets from an asset class owned by the caller 
+        /// and assigns them to the contract address. It adds an item to the exchange's registry,
+        /// associating the asset id with the price determined by the caller.
+        /// 
+        /// * `asset_id`: An asset_id associated with an owned asset class
+        /// * `amount`: The amount of assets that will be minted and provisioned to the exchange
+        /// * `price`: The price (in OBOL) of each token
+        /// 
          #[ink(message)]
          pub fn publish_sale(&mut self, asset_id: u32, amount: u64, price: u64) {
              let caller = self.env().caller();
@@ -108,6 +127,12 @@ mod iris_asset_exchange {
              self.env().emit_event(AssetTransferSuccess { });
          }
 
+        /// purchase assets from the exchange.
+        /// 
+        /// * `owner`: The owner of the asset class from which the asset to be purchased was minted
+        /// * `asset_id`: The id of the owned asset class
+        /// * `amount`: The amount of assets to purchase
+        /// 
         #[ink(message)]
         pub fn purchase_tokens(&mut self, owner: AccountId, asset_id: u32, amount: u64) {
             let caller = self.env().caller();
@@ -115,32 +140,20 @@ mod iris_asset_exchange {
             if let Some(price) = self.registry.get((&owner, &asset_id)) {
                 let total_cost = amount * price;
                 // caller locks total_cost
-                // self.env().extension().lock(total_cost).map_err(|_| {});
+                self.env().extension().lock(total_cost).map_err(|_| {});
                 // contract grants tokens to caller
                 self.env()
                     .extension()
                     .transfer_asset(
                         self.env().account_id(), caller, asset_id, amount,
                     ).map_err(|_| {});
-                self.env().emit_event(AssetTransferSuccess { });
                 // caller send tokens to owner
-                // self.env().extension().unlock_and_transfer(owner).map_err(|_| {});
+                self.env().extension().unlock_and_transfer(owner).map_err(|_| {});
+                self.env().emit_event(AssetTransferSuccess { });
             } else {
-                // TODO: ERROR
+                self.env().emit_event(AssetNotRegistered { });
             }
         }
-
-        // /// Transfer some amount of owned assets to another address
-        // #[ink(message)]
-        // pub fn transfer_asset(&mut self, target: AccountId, asset_id: u32, amount: u64) {
-        //     let caller = self.env().caller();
-        //     self.env()
-        //         .extension()
-        //         .transfer_asset(
-        //             caller, target, asset_id, amount,
-        //         ).map_err(|_| {});
-        //     self.env().emit_event(AssetTransferSuccess { });
-        // }
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
@@ -154,7 +167,7 @@ mod iris_asset_exchange {
         #[ink::test]
         fn default_works() {
             let iris_asset_exchange = IrisAssetExchange::default();
-            // assert_eq!(rand_extension.get(), [0; 32]);
+            assert_eq!(registry.get(), [0; 32]);
         }
 
         // #[ink::test]
