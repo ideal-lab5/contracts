@@ -1,7 +1,7 @@
 [package]
-name = "single_use_token"
+name = "limited_use_token"
 version = "0.1.0"
-authors = ["[your_name] <[your_email]>"]
+authors = ["Tony Riemer <driemworks@iridium.industries>"]
 edition = "2021"
 rust-version = "1.56.1"
 
@@ -16,7 +16,7 @@ scale = { package = "parity-scale-codec", version = "3.1.0", default-features = 
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"], optional = true }
 
 [lib]
-name = "single_use_token"
+name = "limited_use_token"
 path = "lib.rs"
 crate-type = [
 	# Used for normal contract Wasm blobs.

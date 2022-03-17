@@ -47,7 +47,7 @@ impl Environment for CustomEnvironment {
 }
 
 #[ink::contract(env = crate::CustomEnvironment)]
-mod single_use_token {
+mod limited_use_token {
     use super::IrisErr;
     use ink_storage::traits::SpreadAllocate;
     /// The LimitedUseToken storage struct
@@ -131,9 +131,9 @@ mod single_use_token {
         /// We test if the default constructor does its job.
         #[ink::test]
         fn default_works() {
-            let single_use_token = LimitedUseToken::default();
-            assert_eq!(single_use_token.asset_id(), 0);
-            assert_eq!(single_use_token.usage_limit(), 0);
+            let limited_use_token = LimitedUseToken::default();
+            assert_eq!(limited_use_token.asset_id(), 0);
+            assert_eq!(limited_use_token.usage_limit(), 0);
         }
     }
 }
