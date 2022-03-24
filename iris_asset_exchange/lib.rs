@@ -9,7 +9,13 @@ pub trait Iris {
     type ErrorCode = IrisErr;
 
     #[ink(extension = 0, returns_result = false)]
-    fn transfer_asset(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
+    fn payable_transfer_asset(
+        contract_account: ink_env::AccountId,
+        consumer_account: ink_env::AccountId,
+        owner_account: ink_env::AccountId,
+        asset_id: u32,
+        asset_quantity: u64,
+    ) -> [u8; 32];
 
     #[ink(extension = 1, returns_result = false)]
     fn mint(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
@@ -97,6 +103,13 @@ mod iris_asset_exchange {
             Self::new()
         }
 
+        /// Get the version of the contract
+        #[ink(message)]
+        pub fn get_version(&self) -> u32 {
+            // todo: this should be a constant
+            return 1u32;
+        }
+
         /// Provide pricing for a static amount of assets.
         /// 
         /// This function mints new assets from an asset class owned by the caller 
@@ -109,14 +122,14 @@ mod iris_asset_exchange {
         /// 
          #[ink(message)]
          pub fn publish_sale(&mut self, asset_id: u32, amount: u64, price: u64) {
-             let caller = self.env().caller();
-             self.env()
-                 .extension()
-                 .mint(
-                     caller, self.env().account_id(), asset_id, amount,
-                 ).map_err(|_| {});
+            let caller = self.env().caller();
+            self.env()
+                .extension()
+                .mint(
+                    caller, self.env().account_id(), asset_id, amount,
+                ).map_err(|_| {}).ok();
             self.registry.insert((&caller, &asset_id), &price);
-             self.env().emit_event(AssetTransferSuccess { });
+            self.env().emit_event(AssetTransferSuccess { });
          }
 
         /// Purchase assets from the exchange.
@@ -131,21 +144,21 @@ mod iris_asset_exchange {
         /// * `amount`: The amount of assets to purchase
         /// 
         #[ink(message)]
-        pub fn purchase_tokens(&mut self, owner: AccountId, asset_id: u32, amount: u64) {
+        pub fn purchase_tokens(&mut self, owner: AccountId, asset_id: u32, quantity: u64) {
             let caller = self.env().caller();
             // calculate total cost
             if let Some(price) = self.registry.get((&owner, &asset_id)) {
-                let total_cost = amount * price;
+                let total_cost = quantity * price;
                 // caller locks total_cost
-                self.env().extension().lock(total_cost).map_err(|_| {});
+                self.env().extension().lock(total_cost).map_err(|_| {}).ok();
                 // contract grants tokens to caller
                 self.env()
                     .extension()
-                    .transfer_asset(
-                        self.env().account_id(), caller, asset_id, amount,
-                    ).map_err(|_| {});
+                    .payable_transfer_asset(
+                        self.env().account_id(), caller, owner, asset_id, quantity, 
+                    ).map_err(|_| {}).ok();
                 // caller send tokens to owner
-                self.env().extension().unlock_and_transfer(owner).map_err(|_| {});
+                self.env().extension().unlock_and_transfer(owner).map_err(|_| {}).ok();
                 self.env().emit_event(AssetTransferSuccess { });
             } else {
                 self.env().emit_event(AssetNotRegistered { });
@@ -163,41 +176,113 @@ mod iris_asset_exchange {
         /// We test if the default constructor does its job.
         #[ink::test]
         fn default_works() {
-            let _iris_asset_exchange = IrisAssetExchange::default();
-            // assert_eq!(iris_asset_exchange.registry.len(), [0; 32]);
+            let iris_asset_exchange = IrisAssetExchange::default();
+            assert_eq!(iris_asset_exchange.get_version(), 1u32);
         }
 
-        // #[ink::test]
-        // fn chain_extension_works() {
-        //     // given
-        //     struct MockedExtension;
-        //     impl ink_env::test::ChainExtension for MockedExtension {
-        //         /// The static function id of the chain extension.
-        //         fn func_id(&self) -> u32 {
-        //             1101
-        //         }
+        #[ink::test]
+        fn publish_sale_works() {
+            // given
+            struct MintExtension;
+            impl ink_env::test::ChainExtension for MintExtension {
+                fn func_id(&self) -> u32 {
+                    1
+                }
 
-        //         /// The chain extension is called with the given input.
-        //         ///
-        //         /// Returns an error code and may fill the `output` buffer with a
-        //         /// SCALE encoded result. The error code is taken from the
-        //         /// `ink_env::chain_extension::FromStatusCode` implementation for
-        //         /// `RandomReadErr`.
-        //         fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
-        //             let ret: [u8; 32] = [1; 32];
-        //             scale::Encode::encode_to(&ret, output);
-        //             0
-        //         }
-        //     }
-        //     ink_env::test::register_chain_extension(MockedExtension);
-        //     let mut rand_extension = RandExtension::default();
-        //     assert_eq!(rand_extension.get(), [0; 32]);
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+                    let ret: [u8; 32] = [1; 32];
+                    scale::Encode::encode_to(&ret, output);
+                    0
+                }
+            }
+            ink_env::test::register_chain_extension(MintExtension);
 
-        //     // when
-        //     rand_extension.update([0_u8; 32]).expect("update must work");
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let mut iris_asset_exchange = IrisAssetExchange::default();
+            ink_env::test::set_caller::<ink_env::DefaultEnvironment>(accounts.alice);
+            // WHEN: I publish a token sale
+            iris_asset_exchange.publish_sale(
+                1, 1, 1, 
+            );
+            // THEN: it is added to the registry
+            assert_eq!(iris_asset_exchange.registry.get((accounts.alice, 1)).unwrap(), 1);
+        }
 
-        //     // then
-        //     assert_eq!(rand_extension.get(), [1; 32]);
-        // }
+        #[ink::test]
+        fn purchase_tokens_works() {
+            struct MintExtension;
+            impl ink_env::test::ChainExtension for MintExtension {
+                fn func_id(&self) -> u32 {
+                    1
+                }
+
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+                    let ret: [u8; 32] = [1; 32];
+                    scale::Encode::encode_to(&ret, output);
+                    0
+                }
+            }
+            ink_env::test::register_chain_extension(MintExtension);
+
+            struct TransferExtension;
+            impl ink_env::test::ChainExtension for TransferExtension {
+                fn func_id(&self) -> u32 {
+                    0
+                }
+
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+                    let ret: [u8; 32] = [1; 32];
+                    scale::Encode::encode_to(&ret, output);
+                    0
+                }
+            }
+
+            struct LockExtension;
+            impl ink_env::test::ChainExtension for LockExtension {
+                fn func_id(&self) -> u32 {
+                    2
+                }
+
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+                    let ret: [u8; 32] = [1; 32];
+                    scale::Encode::encode_to(&ret, output);
+                    0
+                }
+            }
+
+            struct UnlockExtension;
+            impl ink_env::test::ChainExtension for UnlockExtension {
+                fn func_id(&self) -> u32 {
+                    3
+                }
+
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+                    let ret: [u8; 32] = [1; 32];
+                    scale::Encode::encode_to(&ret, output);
+                    0
+                }
+            }
+
+            ink_env::test::register_chain_extension(TransferExtension);
+            // ink_env::test::register_chain_extension(MintExtension);
+            ink_env::test::register_chain_extension(LockExtension);
+            ink_env::test::register_chain_extension(UnlockExtension);
+
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let mut iris_asset_exchange = IrisAssetExchange::default();
+            ink_env::test::set_caller::<ink_env::DefaultEnvironment>(accounts.alice);
+            // WHEN: I publish a token sale
+            iris_asset_exchange.publish_sale(
+                1, 1, 1, 
+            );
+            // THEN: it is added to the registry
+            // assert_eq!(iris_asset_exchange.registry.get((accounts.alice, 1)), 1);
+
+            ink_env::test::set_balance::<ink_env::DefaultEnvironment>(accounts.bob, 10);
+            ink_env::test::set_caller::<ink_env::DefaultEnvironment>(accounts.bob);
+            iris_asset_exchange.purchase_tokens(
+                accounts.alice, 1, 1,
+            );
+        }
     }
 }
