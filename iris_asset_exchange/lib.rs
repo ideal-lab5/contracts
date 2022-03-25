@@ -105,9 +105,9 @@ mod iris_asset_exchange {
 
         /// Get the version of the contract
         #[ink(message)]
-        pub fn get_version(&self) -> u32 {
+        pub fn get_version(&self) -> [u8; 32] {
             // todo: this should be a constant
-            return 1u32;
+            return [1; 32];
         }
 
         /// Provide pricing for a static amount of assets.
@@ -177,7 +177,7 @@ mod iris_asset_exchange {
         #[ink::test]
         fn default_works() {
             let iris_asset_exchange = IrisAssetExchange::default();
-            assert_eq!(iris_asset_exchange.get_version(), 1u32);
+            assert_eq!(iris_asset_exchange.get_version(), [1;32]);
         }
 
         #[ink::test]
