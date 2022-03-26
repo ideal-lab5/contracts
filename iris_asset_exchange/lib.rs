@@ -12,7 +12,6 @@ pub trait Iris {
     fn payable_transfer_asset(
         contract_account: ink_env::AccountId,
         consumer_account: ink_env::AccountId,
-        owner_account: ink_env::AccountId,
         asset_id: u32,
         asset_quantity: u64,
     ) -> [u8; 32];
@@ -76,8 +75,16 @@ mod iris_asset_exchange {
     #[ink(storage)]
     #[derive(SpreadAllocate)]
     pub struct IrisAssetExchange {
-        /// maps the owner of a token sale to the asset id and asking price 
-        registry: ink_storage::Mapping<(AccountId, u32), u64>,
+        /// maps an asset id to the owner of the token sale
+        owner_registry: ink_storage::Mapping<u32, AccountId>,
+        /// maps an asset id to a price
+        price_registry: ink_storage::Mapping<u32, u64>,
+    }
+
+    #[ink(event)]
+    pub struct ContractVersion {
+        #[ink(topic)]
+        version: u32,
     }
 
     #[ink(event)]
@@ -107,6 +114,7 @@ mod iris_asset_exchange {
         #[ink(message)]
         pub fn get_version(&self) -> [u8; 32] {
             // todo: this should be a constant
+            self.env().emit_event(ContractVersion{ version: 1u32 });
             return [1; 32];
         }
 
@@ -128,7 +136,8 @@ mod iris_asset_exchange {
                 .mint(
                     caller, self.env().account_id(), asset_id, amount,
                 ).map_err(|_| {}).ok();
-            self.registry.insert((&caller, &asset_id), &price);
+            self.owner_registry.insert(&asset_id, &caller);
+            self.price_registry.insert(&asset_id, &price);
             self.env().emit_event(AssetTransferSuccess { });
          }
 
@@ -139,27 +148,31 @@ mod iris_asset_exchange {
         /// 2. Transfer the asset from the contract account to the caller
         /// 3. unlock the locked tokens from (1) and transfer to the owner of the asset class
         /// 
-        /// * `owner`: The owner of the asset class from which the asset to be purchased was minted
         /// * `asset_id`: The id of the owned asset class
         /// * `amount`: The amount of assets to purchase
         /// 
         #[ink(message)]
-        pub fn purchase_tokens(&mut self, owner: AccountId, asset_id: u32, quantity: u64) {
+        pub fn purchase_tokens(&mut self, asset_id: u32, quantity: u64) {
             let caller = self.env().caller();
             // calculate total cost
-            if let Some(price) = self.registry.get((&owner, &asset_id)) {
+            if let Some(price) = self.price_registry.get(&asset_id) {
                 let total_cost = quantity * price;
-                // caller locks total_cost
-                self.env().extension().lock(total_cost).map_err(|_| {}).ok();
-                // contract grants tokens to caller
-                self.env()
-                    .extension()
-                    .payable_transfer_asset(
-                        self.env().account_id(), caller, owner, asset_id, quantity, 
-                    ).map_err(|_| {}).ok();
-                // caller send tokens to owner
-                self.env().extension().unlock_and_transfer(owner).map_err(|_| {}).ok();
-                self.env().emit_event(AssetTransferSuccess { });
+                if let Some(owner_account) = self.owner_registry.get(&asset_id) {
+                    // caller locks total_cost
+                    self.env().extension().lock(total_cost).map_err(|_| {}).ok();
+                    // contract grants tokens to caller
+                    // TODO: Should there be some validation on owner? this call will fail if the owner is incorrect anyway
+                    self.env()
+                        .extension()
+                        .payable_transfer_asset(
+                            self.env().account_id(), caller, asset_id, quantity, 
+                        ).map_err(|_| {}).ok();
+                    // caller send tokens to owner -> needs to be folded into the exrinsic itself
+                    self.env().extension().unlock_and_transfer(owner_account).map_err(|_| {}).ok();
+                    self.env().emit_event(AssetTransferSuccess { });
+                } else {
+                    self.env().emit_event(AssetNotRegistered { });    
+                }
             } else {
                 self.env().emit_event(AssetNotRegistered { });
             }
