@@ -9,12 +9,7 @@ pub trait Iris {
     type ErrorCode = IrisErr;
 
     #[ink(extension = 0, returns_result = false)]
-    fn payable_transfer_asset(
-        contract_account: ink_env::AccountId,
-        consumer_account: ink_env::AccountId,
-        asset_id: u32,
-        asset_quantity: u64,
-    ) -> [u8; 32];
+    fn transfer_asset(contract_account: ink_env::AccountId, consumer_account: ink_env::AccountId, asset_id: u32, asset_quantity: u64) -> [u8; 32];
 
     #[ink(extension = 1, returns_result = false)]
     fn mint(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
@@ -164,7 +159,7 @@ mod iris_asset_exchange {
                     // TODO: Should there be some validation on owner? this call will fail if the owner is incorrect anyway
                     self.env()
                         .extension()
-                        .payable_transfer_asset(
+                        .transfer_asset(
                             self.env().account_id(), caller, asset_id, quantity, 
                         ).map_err(|_| {}).ok();
                     // caller send tokens to owner -> needs to be folded into the exrinsic itself
