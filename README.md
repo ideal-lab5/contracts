@@ -8,6 +8,13 @@ Follow the [ink! documentation](https://paritytech.github.io/ink-docs/getting-st
 
 To compile a wasm blob and metadata for a contract, navigate to the contract's root directory and run:
 
+<<<<<<< HEAD
+=======
+``` bash
+cargo +nightly contract build
+```
+
+>>>>>>> upstream/main
 ### Note on Binaryen/wasm-opt
 
 If your package manager doesn't have binaryen versions >= 99, then:
