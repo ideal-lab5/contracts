@@ -98,7 +98,7 @@ mod iris_asset_exchange {
         pub fn new() -> Self {
             ink_lang::utils::initialize_contract(|_| {})
         }
-
+-
         /// Default constructor
         #[ink(constructor, payable)]
         pub fn default() -> Self {
@@ -111,6 +111,20 @@ mod iris_asset_exchange {
             // todo: this should be a constant
             self.env().emit_event(ContractVersion{ version: 1u32 });
             return [1; 32];
+        }
+
+        /// Fetch the price for a registered asset
+        /// * `asset_id`: The asset id to fetch the price for
+        #[ink(message)]
+        pub fn get_price(&self, asset_id: u32) -> u64 {
+            return self.price_registry.get(&asset_id);
+        }
+
+        /// Fetch the owner of an asset id
+        /// * `asset_id`: The asset id to fetch the owner of
+        #[ink(message)]
+        pub fn get_owner(&self, asset_ud: u32) -> AccountId {
+            return self.owner_registry.get(&asset_id);
         }
 
         /// Provide pricing for a static amount of assets.
