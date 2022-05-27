@@ -36,7 +36,7 @@ impl ink_env::chain_extension::FromStatusCode for IrisErr {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
             6 => Err(Self::FailQueryOwner),
-            _ => panic!("encountered unknown status code"),
+            _ => panic!("encountered unknown status code {:?}", status_code),
         }
     }
 }
@@ -81,14 +81,24 @@ mod limited_use_rule {
     #[ink(storage)]
     #[derive(SpreadAllocate)]
     pub struct LimitedUseRuleContract {
+        limit: u32,
         asset_registry: ink_storage::Mapping<u32, AccountId>,
         usage_counter: ink_storage::Mapping<AccountId, u32>,
     }
 
     impl LimitedUseRuleContract {
         #[ink(constructor)]
-        pub fn new(initial_supply: Balance) -> Self {
-            ink_lang::utils::initialize_contract(|_| {})
+        pub fn new(limit: u32) -> Self {
+            if limit <= 0 {
+                panic!("limit must be positive");
+            }
+            ink_lang::utils::initialize_contract(|contract: &mut Self| {
+                contract.limit = limit;
+            })
+        }
+
+        fn get_limit(&self) -> u32 {
+            self.limit
         }
     }
 
@@ -97,7 +107,7 @@ mod limited_use_rule {
         #[ink(message, payable)]
         fn register(&mut self, asset_id: u32) {
             let caller = self.env().caller();
-            if let Some(limit) = self.asset_registry.get(&asset_id) {
+            if let Some(admin) = self.asset_registry.get(&asset_id) {
                 self.env().emit_event(AlreadyRegistered{});
             } else {
                 // check that caller is asset owner
@@ -132,26 +142,49 @@ mod limited_use_rule {
         use ink_lang as ink;
 
         #[ink::test]
-        fn can_register_new_asset_positive_limit() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+        fn can_create_new_contract_with_positive_limit() {
+            let limit = 10;
+            let limited_use_contract = LimitedUseRuleContract::new(limit);
+            assert_eq!(limit, limited_use_contract.get_limit());
+        }
+
+        // #[ink::test]
+        // fn fail_to_create_new_contract_with_zero_limit() {
+        //     let limit = 0;
+        //     LimitedUseRuleContract::new(limit);
+        // }
+
+        /**
+         * # Test for the `register` function
+         */
+
+        fn setup_register_test(limit: u32, default_account: ink_env::AccountId) -> LimitedUseRuleContract {
             struct MockExtension;
             impl ink_env::test::ChainExtension for MockExtension {
                 fn func_id(&self) -> u32 {
                     6
                 }
-                fn call(&mut self, _input: &[u8], output: &mut AccountId) -> u32 {
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
                     // let ret: AccountId = AccountId::from([0x01; 32]);
-                    let ret: AccountId = accounts.alice;
+                    let ret = true;
                     scale::Encode::encode_to(&ret, output);
-                    0
+                    6
                 }
             }
 
             ink_env::test::register_chain_extension(MockExtension);
 
-            let limited_use_contract = LimitedUseRuleContract::new();
-            ink_env::test::set_caller::<ink_env::DefaultEnvironment>(accounts.alice);
+            let limited_use_contract = LimitedUseRuleContract::new(limit);
+            ink_env::test::set_caller::<ink_env::DefaultEnvironment>(default_account);
+            limited_use_contract
+        }
+
+        #[ink::test]
+        fn can_register_new_asset_positive_limit() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let mut limited_use_contract = setup_register_test(1, accounts.alice);
             limited_use_contract.register(1);
+            // assert_eq!(accounts.alice, limited_use_contract.asset_registry.get());
         }
 
         // #[ink::test]
