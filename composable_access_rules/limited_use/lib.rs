@@ -1,5 +1,7 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+#![feature(trivial_bounds)]
 //!
-//! Limited Use Asset Composalbe Access Rule
+//! Limited Use Asset Composable Access Rule
 //! 
 //! This contract allows data owners to impose limitations on the number
 //! of times an address may use a token to access data associated with the 
@@ -10,25 +12,34 @@
 use ink_env::Environment;
 use ink_lang as ink;
 
+// #[ink::chain_extension]
+// pub trait Iris {
+//     type ErrorCode = IrisErr;
+
+//     #[ink(extension = 6, returns_result = true)]
+//     fn check_owner(query_address: ink_env::AccountId, asset_id: u32) -> bool;
+// }
+
+
 /// Functions to interact with the Iris runtime as defined in runtime/src/lib.rs
 #[ink::chain_extension]
 pub trait Iris {
     type ErrorCode = IrisErr;
-
-    #[ink(extension = 6, returns_result = true)]
-    fn check_owner(asset_id: u32) -> ink_env::AccountId;
+    
+    #[ink(extension = 6, returns_result = false)]
+    fn query_owner(query: ink_env::AccountId, asset_id: u32) -> bool;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum IrisErr {
-    FailCheckOwner,
+    FailQueryOwner,
 }
 
 impl ink_env::chain_extension::FromStatusCode for IrisErr {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
-            6 => Err(Self::FailCheckOwner),
+            6 => Err(Self::FailQueryOwner),
             _ => panic!("encountered unknown status code"),
         }
     }
@@ -51,9 +62,8 @@ impl Environment for CustomEnvironment {
     type ChainExtension = Iris;
 }
 
-
 #[ink::contract(env = crate::CustomEnvironment)]
-mod limited_use_token {
+mod limited_use_rule {
     use ink_storage::traits::SpreadAllocate;
     use traits::ComposableAccessRule;
 
@@ -81,40 +91,40 @@ mod limited_use_token {
 
     impl LimitedUseRuleContract {
         #[ink(constructor)]
-        fn new(initial_supply: Balance) -> Self {
+        pub fn new(initial_supply: Balance) -> Self {
             ink_lang::utils::initialize_contract(|_| {})
         }
     }
 
-    // impl ComposableAccessRule for LimitedUseRuleContract {
+    impl ComposableAccessRule for LimitedUseRuleContract {
 
-    //     #[ink(message, payable)]
-    //     fn register(&mut self, asset_id: u32) {
-    //         // let caller = self.env().caller();
-    //         // if let Some(self.asset_registry.get(&asset_id)) {
-    //         //     self.env().emit_event(AlreadyRegistered);
-    //         // } else {
-    //         //     // check that caller is asset owner
-    //         //     let asset_owner = self.env()
-    //         //         .extension()
-    //         //         .check_owner(asset_id)?;
-    //         //     if (asset_owner == caller) {
-    //         //         self.asset_registry.insert(&asset_id, &caller);
-    //         //         self.env().emit_event(RegistrationSuccessful);
-    //         //     } else {
-    //         //         self.env().emit_event(CallerIsNotOwner);
-    //         //     }
-    //         // }
-    //     }
+        #[ink(message, payable)]
+        fn register(&mut self, asset_id: u32) {
+            let caller = self.env().caller();
+            if let Some(limit) = self.asset_registry.get(&asset_id) {
+                self.env().emit_event(AlreadyRegistered);
+            } else {
+                // check that caller is asset owner
+                let asset_owner = self.env()
+                    .extension()
+                    .check_owner(asset_id)?;
+                if (asset_owner == caller) {
+                    self.asset_registry.insert(&asset_id, &caller);
+                    self.env().emit_event(RegistrationSuccessful);
+                } else {
+                    self.env().emit_event(CallerIsNotOwner);
+                }
+            }
+        }
 
-    //     #[ink(message, payable)]
-    //     fn execute(&mut self, asset_id: u32) {
-    //         // let caller = self.env().caller();
-    //         // // get count for the asset id
-    //         // let access_limit = self.asset_registry.get(&asset_id);
-    //         // // if let Some(self.usage_counter)
-    //     }
-    // }
+        #[ink(message, payable)]
+        fn execute(&mut self, asset_id: u32) {
+            // let caller = self.env().caller();
+            // // get count for the asset id
+            // let access_limit = self.asset_registry.get(&asset_id);
+            // // if let Some(self.usage_counter)
+        }
+    }
 
     // #[cfg(test)]
     // mod tests {
