@@ -1,25 +1,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![feature(trivial_bounds)]
 //!
-//! Limited Use Asset Composable Access Rule
+//! Limited Use Rule
 //! 
+//! # Goal
 //! This contract allows data owners to impose limitations on the number
 //! of times an address may use a token to access data associated with the 
 //! asset class
+//! 
+//! # Register
+//! 
+//! # Execute
 //! 
 //! 
 
 use ink_env::Environment;
 use ink_lang as ink;
-
-// #[ink::chain_extension]
-// pub trait Iris {
-//     type ErrorCode = IrisErr;
-
-//     #[ink(extension = 6, returns_result = true)]
-//     fn check_owner(query_address: ink_env::AccountId, asset_id: u32) -> bool;
-// }
-
 
 /// Functions to interact with the Iris runtime as defined in runtime/src/lib.rs
 #[ink::chain_extension]
@@ -102,17 +98,21 @@ mod limited_use_rule {
         fn register(&mut self, asset_id: u32) {
             let caller = self.env().caller();
             if let Some(limit) = self.asset_registry.get(&asset_id) {
-                self.env().emit_event(AlreadyRegistered);
+                self.env().emit_event(AlreadyRegistered{});
             } else {
                 // check that caller is asset owner
-                let asset_owner = self.env()
+                let is_owner = self.env()
                     .extension()
-                    .check_owner(asset_id)?;
-                if (asset_owner == caller) {
-                    self.asset_registry.insert(&asset_id, &caller);
-                    self.env().emit_event(RegistrationSuccessful);
-                } else {
-                    self.env().emit_event(CallerIsNotOwner);
+                    .query_owner(caller, asset_id)
+                    .map_err(|_| {}).ok();
+                match is_owner {
+                    Some(true) => {
+                        self.asset_registry.insert(&asset_id, &caller);
+                        self.env().emit_event(RegistrationSuccessful{});
+                    },
+                    _ => {
+                        self.env().emit_event(CallerIsNotOwner{});
+                    }
                 }
             }
         }
@@ -126,46 +126,47 @@ mod limited_use_rule {
         }
     }
 
-    // #[cfg(test)]
-    // mod tests {
-    //     use super::*;
-    //     use ink_lang as ink;
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use ink_lang as ink;
 
-    //     #[ink::test]
-    //     fn can_register_new_asset_positive_limit() {
-    //         let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-    //         struct MockExtension;
-    //         impl ink_env::test::ChainExtension for MockExtension {
-    //             fn func_id(&self) -> u32 {
-    //                 6
-    //             }
-    //             fn call(&mut self, _input: &[u8], output: &mut AccountId) -> u32 {
-    //                 // let ret: AccountId = AccountId::from([0x01; 32]);
-    //                 let ret: AccountId = accounts.alice;
-    //                 scale::Encode::encode_to(&ret, output);
-    //                 0
-    //             }
-    //             ink_env::test::register_chain_extension(MockExtension);
-    //         }
+        #[ink::test]
+        fn can_register_new_asset_positive_limit() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            struct MockExtension;
+            impl ink_env::test::ChainExtension for MockExtension {
+                fn func_id(&self) -> u32 {
+                    6
+                }
+                fn call(&mut self, _input: &[u8], output: &mut AccountId) -> u32 {
+                    // let ret: AccountId = AccountId::from([0x01; 32]);
+                    let ret: AccountId = accounts.alice;
+                    scale::Encode::encode_to(&ret, output);
+                    0
+                }
+            }
 
-    //         let limited_use_contract = LimitedUseRuleContract::new();
-    //         ink_env::test::set_caller::<ink_env::DefaultEnvironment>(accounts.alice);
-    //         limited_use_contract.register(1);
-    //     }
+            ink_env::test::register_chain_extension(MockExtension);
 
-    //     // #[ink::test]
-    //     // fn cant_register_new_asset_with_negative_limit() {
+            let limited_use_contract = LimitedUseRuleContract::new();
+            ink_env::test::set_caller::<ink_env::DefaultEnvironment>(accounts.alice);
+            limited_use_contract.register(1);
+        }
 
-    //     // }
+        // #[ink::test]
+        // fn cant_register_new_asset_with_negative_limit() {
+
+        // }
         
-    //     // #[ink::test]
-    //     // fn cant_register_new_asset_with_zero_limit() {
+        // #[ink::test]
+        // fn cant_register_new_asset_with_zero_limit() {
 
-    //     // }
+        // }
 
-    //     // #[ink::test]
-    //     // fn cant_register_new_asset_when_not_owner() {
+        // #[ink::test]
+        // fn cant_register_new_asset_when_not_owner() {
 
-    //     // }
-    // }
+        // }
+    }
 }
