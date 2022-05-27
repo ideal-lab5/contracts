@@ -9,6 +9,7 @@
 //! asset class
 //! 
 //! # Register
+//! The asset registry maps the asset id to the owner (can probably remove owner?)
 //! 
 //! # Execute
 //! 
@@ -22,7 +23,7 @@ use ink_lang as ink;
 pub trait Iris {
     type ErrorCode = IrisErr;
     
-    #[ink(extension = 6, returns_result = false)]
+    #[ink(extension = 6, returns_result = false, handle_status = false)]
     fn query_owner(query: ink_env::AccountId, asset_id: u32) -> bool;
 }
 
@@ -78,6 +79,15 @@ mod limited_use_rule {
     #[ink(event)]
     pub struct ExecutionFailed{}
 
+    #[ink(event)]
+    pub struct AssetNotRegistered{}
+
+    #[ink(event)]
+    pub struct LimitExceeded{}
+
+    #[ink(event)]
+    pub struct AccessAllowed{}
+
     #[ink(storage)]
     #[derive(SpreadAllocate)]
     pub struct LimitedUseRuleContract {
@@ -104,6 +114,7 @@ mod limited_use_rule {
 
     impl ComposableAccessRule for LimitedUseRuleContract {
 
+        /// register the asset id in the limited use rule instance
         #[ink(message, payable)]
         fn register(&mut self, asset_id: u32) {
             let caller = self.env().caller();
@@ -113,26 +124,40 @@ mod limited_use_rule {
                 // check that caller is asset owner
                 let is_owner = self.env()
                     .extension()
-                    .query_owner(caller, asset_id)
-                    .map_err(|_| {}).ok();
-                match is_owner {
-                    Some(true) => {
-                        self.asset_registry.insert(&asset_id, &caller);
-                        self.env().emit_event(RegistrationSuccessful{});
-                    },
-                    _ => {
-                        self.env().emit_event(CallerIsNotOwner{});
-                    }
+                    .query_owner(caller, asset_id);
+                
+                if is_owner {
+                    self.asset_registry.insert(&asset_id, &caller);
+                    self.env().emit_event(RegistrationSuccessful{});
+                } else {
+                    self.env().emit_event(CallerIsNotOwner{});
                 }
             }
         }
 
+        /// check if the number of times a caller has attempted access to the asset 
+        /// exceeds the pre-defined limit amoutn
+        /// 
+        /// * `asset_id`: The asset to which access is attempted
+        /// 
         #[ink(message, payable)]
         fn execute(&mut self, asset_id: u32) {
-            // let caller = self.env().caller();
-            // // get count for the asset id
-            // let access_limit = self.asset_registry.get(&asset_id);
-            // // if let Some(self.usage_counter)
+            let caller = self.env().caller();
+            // if the asset has been registered
+            if let Some(owner) = self.asset_registry.get(&asset_id) {
+                // check number of times the caller has attempted access
+                if let Some(access_attempts) = self.usage_counter.get(&caller) {
+                    if access_attempts < self.limit {
+                        let next_attempt_count = access_attempts + 1;
+                        self.usage_counter.insert(&caller, &next_attempt_count);
+                        self.env().emit_event(AccessAllowed{});
+                    } else {
+                        self.env().emit_event(LimitExceeded{});
+                    }
+                }
+            } else {
+                self.env().emit_event(AssetNotRegistered{});
+            }
         }
     }
 
@@ -148,17 +173,11 @@ mod limited_use_rule {
             assert_eq!(limit, limited_use_contract.get_limit());
         }
 
-        // #[ink::test]
-        // fn fail_to_create_new_contract_with_zero_limit() {
-        //     let limit = 0;
-        //     LimitedUseRuleContract::new(limit);
-        // }
-
         /**
-         * # Test for the `register` function
+         * # Tests for the `register` function
          */
 
-        fn setup_register_test(limit: u32, default_account: ink_env::AccountId) -> LimitedUseRuleContract {
+        fn setup_register_test_owner_true(limit: u32, default_account: ink_env::AccountId) -> LimitedUseRuleContract {
             struct MockExtension;
             impl ink_env::test::ChainExtension for MockExtension {
                 fn func_id(&self) -> u32 {
@@ -166,8 +185,26 @@ mod limited_use_rule {
                 }
                 fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
                     // let ret: AccountId = AccountId::from([0x01; 32]);
-                    let ret = true;
-                    scale::Encode::encode_to(&ret, output);
+                    scale::Encode::encode_to(&true, output);
+                    6
+                }
+            }
+
+            ink_env::test::register_chain_extension(MockExtension);
+
+            let limited_use_contract = LimitedUseRuleContract::new(limit);
+            ink_env::test::set_caller::<ink_env::DefaultEnvironment>(default_account);
+            limited_use_contract
+        }
+
+        fn setup_register_test_owner_false(limit: u32, default_account: ink_env::AccountId) -> LimitedUseRuleContract {
+            struct MockExtension;
+            impl ink_env::test::ChainExtension for MockExtension {
+                fn func_id(&self) -> u32 {
+                    6
+                }
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+                    scale::Encode::encode_to(&false, output);
                     6
                 }
             }
@@ -180,26 +217,20 @@ mod limited_use_rule {
         }
 
         #[ink::test]
-        fn can_register_new_asset_positive_limit() {
+        fn can_register_new_asset_when_owner() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut limited_use_contract = setup_register_test(1, accounts.alice);
+            let mut limited_use_contract = setup_register_test_owner_true(1, accounts.alice);
             limited_use_contract.register(1);
-            // assert_eq!(accounts.alice, limited_use_contract.asset_registry.get());
+            assert_eq!(Some(accounts.alice), limited_use_contract.asset_registry.get(1));
         }
 
-        // #[ink::test]
-        // fn cant_register_new_asset_with_negative_limit() {
-
-        // }
+        #[ink::test]
+        fn cant_register_new_asset_when_not_owner() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let mut limited_use_contract = setup_register_test_owner_false(1, accounts.alice);
+            limited_use_contract.register(1);
+            assert_eq!(None, limited_use_contract.asset_registry.get(1));
+        }
         
-        // #[ink::test]
-        // fn cant_register_new_asset_with_zero_limit() {
-
-        // }
-
-        // #[ink::test]
-        // fn cant_register_new_asset_when_not_owner() {
-
-        // }
     }
 }
