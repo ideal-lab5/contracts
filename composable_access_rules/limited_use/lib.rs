@@ -22,21 +22,26 @@ use ink_lang as ink;
 #[ink::chain_extension]
 pub trait Iris {
     type ErrorCode = IrisErr;
+
+    #[ink(extension = 2, returns_result = false)]
+    fn burn(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
     
-    #[ink(extension = 6, returns_result = false, handle_status = false)]
+    #[ink(extension = 5, returns_result = false, handle_status = false)]
     fn query_owner(query: ink_env::AccountId, asset_id: u32) -> bool;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum IrisErr {
+    FailBurnAsset,
     FailQueryOwner,
 }
 
 impl ink_env::chain_extension::FromStatusCode for IrisErr {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
-            6 => Err(Self::FailQueryOwner),
+            2 => Err(Self::FailBurnAsset),
+            5 => Err(Self::FailQueryOwner),
             _ => panic!("encountered unknown status code {:?}", status_code),
         }
     }
@@ -152,8 +157,17 @@ mod limited_use_rule {
                         self.usage_counter.insert(&caller, &next_attempt_count);
                         self.env().emit_event(AccessAllowed{});
                     } else {
+                        self.env()
+                            .extension()
+                            .burn(
+                                caller, caller, asset_id, 1,
+                            )
+                            .map_err(|_| {});
                         self.env().emit_event(LimitExceeded{});
                     }
+                } else {
+                    // first access
+                    self.usage_counter.insert(&caller, &1);
                 }
             } else {
                 self.env().emit_event(AssetNotRegistered{});
@@ -177,49 +191,66 @@ mod limited_use_rule {
          * # Tests for the `register` function
          */
 
-        fn setup_register_test_owner_true(limit: u32, default_account: ink_env::AccountId) -> LimitedUseRuleContract {
-            struct MockExtension;
-            impl ink_env::test::ChainExtension for MockExtension {
-                fn func_id(&self) -> u32 {
-                    6
-                }
-                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
-                    // let ret: AccountId = AccountId::from([0x01; 32]);
-                    scale::Encode::encode_to(&true, output);
-                    6
-                }
-            }
-
-            ink_env::test::register_chain_extension(MockExtension);
-
+        fn setup_test(limit: u32, default_account: ink_env::AccountId) -> LimitedUseRuleContract {
             let limited_use_contract = LimitedUseRuleContract::new(limit);
             ink_env::test::set_caller::<ink_env::DefaultEnvironment>(default_account);
             limited_use_contract
         }
 
-        fn setup_register_test_owner_false(limit: u32, default_account: ink_env::AccountId) -> LimitedUseRuleContract {
+        fn mock_query_owner_extension_true() {
             struct MockExtension;
             impl ink_env::test::ChainExtension for MockExtension {
                 fn func_id(&self) -> u32 {
-                    6
+                    5
                 }
                 fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
-                    scale::Encode::encode_to(&false, output);
-                    6
+                    // let ret: AccountId = AccountId::from([0x01; 32]);
+                    scale::Encode::encode_to(&true, output);
+                    5
                 }
             }
 
             ink_env::test::register_chain_extension(MockExtension);
+        }
 
-            let limited_use_contract = LimitedUseRuleContract::new(limit);
-            ink_env::test::set_caller::<ink_env::DefaultEnvironment>(default_account);
-            limited_use_contract
+        fn mock_query_owner_extension_false() {
+            struct MockExtension;
+            impl ink_env::test::ChainExtension for MockExtension {
+                fn func_id(&self) -> u32 {
+                    5
+                }
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+                    // let ret: AccountId = AccountId::from([0x01; 32]);
+                    scale::Encode::encode_to(&false, output);
+                    5
+                }
+            }
+
+            ink_env::test::register_chain_extension(MockExtension);
+        }
+
+        fn mock_burn_extension() {
+            struct MockBurnExtension;
+            impl ink_env::test::ChainExtension for MockBurnExtension {
+                fn func_id(&self) -> u32 {
+                    2
+                }
+                fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
+                    let ret: [u8; 32] = [1; 32];
+                    scale::Encode::encode_to(&ret, output);
+                    2
+                }
+            }
+
+            ink_env::test::register_chain_extension(MockBurnExtension);
         }
 
         #[ink::test]
         fn can_register_new_asset_when_owner() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut limited_use_contract = setup_register_test_owner_true(1, accounts.alice);
+            let mut limited_use_contract = setup_test(1, accounts.alice);
+            mock_query_owner_extension_true();
+
             limited_use_contract.register(1);
             assert_eq!(Some(accounts.alice), limited_use_contract.asset_registry.get(1));
         }
@@ -227,10 +258,87 @@ mod limited_use_rule {
         #[ink::test]
         fn cant_register_new_asset_when_not_owner() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut limited_use_contract = setup_register_test_owner_false(1, accounts.alice);
+            let mut limited_use_contract = setup_test(1, accounts.alice);
+            mock_query_owner_extension_false();
+
             limited_use_contract.register(1);
             assert_eq!(None, limited_use_contract.asset_registry.get(1));
         }
         
+        #[ink::test]
+        fn can_execute_and_increment_on_first_access() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let mut limited_use_contract = setup_test(2, accounts.alice);
+            mock_query_owner_extension_true();
+            mock_burn_extension();
+
+            // GIVEN: An asset class is registered
+            limited_use_contract.register(1);
+            assert_eq!(Some(accounts.alice), limited_use_contract.asset_registry.get(1));
+
+            // WHEN: I attempt to invoke the execute function
+            limited_use_contract.execute(1);
+            // THEN: The access attempt value is incremented by one
+            assert_eq!(Some(1), limited_use_contract.usage_counter.get(accounts.alice));
+        }
+
+        #[ink::test]
+        fn can_execute_and_increment_on_second_access() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let mut limited_use_contract = setup_test(2, accounts.alice);
+            mock_query_owner_extension_true();
+
+            // GIVEN: An asset class is registered
+            limited_use_contract.register(1);
+            assert_eq!(Some(accounts.alice), limited_use_contract.asset_registry.get(1));
+
+            // WHEN: I attempt to invoke the execute function
+            limited_use_contract.execute(1);
+            // THEN: The access attempt value is incremented by one
+            assert_eq!(Some(1), limited_use_contract.usage_counter.get(accounts.alice));
+
+            // WHEN: I attempt to invoke the execute function AGAIN
+            limited_use_contract.execute(1);
+            // THEN: The access attempt value is incremented by one
+            assert_eq!(Some(2), limited_use_contract.usage_counter.get(accounts.alice));
+        }
+
+        #[ink::test]
+        fn can_execute_and_not_increment_and_burn_when_limit_exceeded() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let mut limited_use_contract = setup_test(2, accounts.alice);
+            mock_query_owner_extension_true();
+            mock_burn_extension();
+            // GIVEN: An asset class is registered
+            limited_use_contract.register(1);
+            assert_eq!(Some(accounts.alice), limited_use_contract.asset_registry.get(1));
+
+            // WHEN: I attempt to invoke the execute function
+            limited_use_contract.execute(1);
+            // THEN: The access attempt value is incremented by one
+            assert_eq!(Some(1), limited_use_contract.usage_counter.get(accounts.alice));
+
+            // WHEN: I attempt to invoke the execute function AGAIN
+            limited_use_contract.execute(1);
+            // THEN: The access attempt value is incremented by one
+            assert_eq!(Some(2), limited_use_contract.usage_counter.get(accounts.alice));
+
+            
+            // WHEN: I attempt to invoke the execute function AGAIN
+            limited_use_contract.execute(1);
+            // THEN: The access attempt value is incremented by one
+            assert_eq!(Some(2), limited_use_contract.usage_counter.get(accounts.alice));
+        }
+
+        #[ink::test]
+        fn can_execute_none_value_when_asset_not_registered() {
+            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+            let mut limited_use_contract = setup_test(2, accounts.alice);
+            // GIVEN: An asset class is NOT registered
+            // WHEN: I attempt to invoke the execute function
+            limited_use_contract.execute(1);
+            // THEN: The access attempt value is incremented by one
+            assert_eq!(None, limited_use_contract.usage_counter.get(accounts.alice));
+        }
     }
 }
