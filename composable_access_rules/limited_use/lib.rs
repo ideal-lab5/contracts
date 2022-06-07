@@ -118,35 +118,13 @@ mod limited_use_rule {
     }
 
     impl ComposableAccessRule for LimitedUseRuleContract {
-
-        /// register the asset id in the limited use rule instance
-        #[ink(message, payable)]
-        fn register(&mut self, asset_id: u32) {
-            let caller = self.env().caller();
-            if let Some(admin) = self.asset_registry.get(&asset_id) {
-                self.env().emit_event(AlreadyRegistered{});
-            } else {
-                // check that caller is asset owner
-                let is_owner = self.env()
-                    .extension()
-                    .query_owner(caller, asset_id);
-                
-                if is_owner {
-                    self.asset_registry.insert(&asset_id, &caller);
-                    self.env().emit_event(RegistrationSuccessful{});
-                } else {
-                    self.env().emit_event(CallerIsNotOwner{});
-                }
-            }
-        }
-
         /// check if the number of times a caller has attempted access to the asset 
         /// exceeds the pre-defined limit amoutn
         /// 
         /// * `asset_id`: The asset to which access is attempted
         /// 
         #[ink(message, payable)]
-        fn execute(&mut self, asset_id: u32) {
+        fn execute(&mut self, asset_id: u32) -> bool {
             let caller = self.env().caller();
             // if the asset has been registered
             if let Some(owner) = self.asset_registry.get(&asset_id) {
@@ -156,6 +134,7 @@ mod limited_use_rule {
                         let next_attempt_count = access_attempts + 1;
                         self.usage_counter.insert(&caller, &next_attempt_count);
                         self.env().emit_event(AccessAllowed{});
+                        return true;
                     } else {
                         self.env()
                             .extension()
@@ -167,11 +146,14 @@ mod limited_use_rule {
                     }
                 } else {
                     // first access
+                    self.env().emit_event(AccessAllowed{});
                     self.usage_counter.insert(&caller, &1);
+                    return true;
                 }
             } else {
                 self.env().emit_event(AssetNotRegistered{});
             }
+            return false;
         }
     }
 
@@ -245,25 +227,25 @@ mod limited_use_rule {
             ink_env::test::register_chain_extension(MockBurnExtension);
         }
 
-        #[ink::test]
-        fn can_register_new_asset_when_owner() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut limited_use_contract = setup_test(1, accounts.alice);
-            mock_query_owner_extension_true();
+        // #[ink::test]
+        // fn can_register_new_asset_when_owner() {
+        //     let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+        //     let mut limited_use_contract = setup_test(1, accounts.alice);
+        //     mock_query_owner_extension_true();
 
-            limited_use_contract.register(1);
-            assert_eq!(Some(accounts.alice), limited_use_contract.asset_registry.get(1));
-        }
+        //     limited_use_contract.register(1);
+        //     assert_eq!(Some(accounts.alice), limited_use_contract.asset_registry.get(1));
+        // }
 
-        #[ink::test]
-        fn cant_register_new_asset_when_not_owner() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut limited_use_contract = setup_test(1, accounts.alice);
-            mock_query_owner_extension_false();
+        // #[ink::test]
+        // fn cant_register_new_asset_when_not_owner() {
+        //     let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
+        //     let mut limited_use_contract = setup_test(1, accounts.alice);
+        //     mock_query_owner_extension_false();
 
-            limited_use_contract.register(1);
-            assert_eq!(None, limited_use_contract.asset_registry.get(1));
-        }
+        //     limited_use_contract.register(1);
+        //     assert_eq!(None, limited_use_contract.asset_registry.get(1));
+        // }
         
         #[ink::test]
         fn can_execute_and_increment_on_first_access() {

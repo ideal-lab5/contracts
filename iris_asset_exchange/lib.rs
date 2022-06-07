@@ -141,6 +141,7 @@ mod iris_asset_exchange {
          #[ink(message)]
          pub fn publish_sale(&mut self, asset_id: u32, amount: u64, price: u64) {
             let caller = self.env().caller();
+            // TODO: add asset id ownerhsip check
             self.env()
                 .extension()
                 .mint(

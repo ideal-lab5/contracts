@@ -1,5 +1,5 @@
 [package]
-name = "sample-nft-marketplace"
+name = "rule_executor"
 version = "0.1.0"
 authors = ["Tony Riemer <driemworks@idealabs.network>"]
 edition = "2021"
@@ -11,13 +11,13 @@ ink_metadata = { version = "3.0.0", default-features = false, features = ["deriv
 ink_env = { version = "3.0.0", default-features = false }
 ink_storage = { version = "3.0.0", default-features = false }
 ink_lang = { version = "3.0.0", default-features = false }
-ink_prelude = { version = "3.0.0", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"], optional = true }
+# limited_use_contract = { path = "../composable_access_rules/limited_use", default-features = false, features=["ink-as-dependency"] }
 
 [lib]
-name = "iris_asset_exchange"
+name = "rule_executor"
 path = "lib.rs"
 crate-type = ["cdylib"]
 
