@@ -11,6 +11,7 @@ ink_metadata = { version = "3.0.0", default-features = false, features = ["deriv
 ink_env = { version = "3.0.0", default-features = false }
 ink_storage = { version = "3.0.0", default-features = false }
 ink_lang = { version = "3.0.0", default-features = false }
+ink_prelude = { version = "3.0.0", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"], optional = true }
@@ -19,7 +20,7 @@ traits = { path = "../traits", default-features = false }
 [lib]
 name = "limited_use_rule"
 path = "lib.rs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["std"]
