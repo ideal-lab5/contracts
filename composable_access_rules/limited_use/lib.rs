@@ -69,13 +69,13 @@ mod limited_use_rule {
             })
         }
 
-        fn get_limit(&self) -> u32 {
+        #[ink(message)]
+        pub fn get_limit(&self) -> u32 {
             self.limit
         }
     }
 
     impl ComposableAccessRule for LimitedUseRule {
-
         /// check if the number of times a caller has attempted access to the asset 
         /// exceeds the pre-defined limit amount
         /// 
@@ -124,6 +124,20 @@ mod limited_use_rule {
             let limit = 10;
             let limited_use_contract = LimitedUseRule::new(limit);
             assert_eq!(limit, limited_use_contract.get_limit());
+        }
+
+        #[ink::test]
+        #[should_panic]
+        fn panic_when_new_contract_with_zero_limit() {
+            let limit = 0;
+            let limited_use_contract = LimitedUseRule::new(limit);
+        }
+
+        #[ink::test]
+        #[should_panic]
+        fn panic_when_new_contract_with_negative_limit() {
+            let limit = -10;
+            let limited_use_contract = LimitedUseRule::new(limit);
         }
 
         /**
@@ -191,6 +205,5 @@ mod limited_use_rule {
             let usage_tracker_3 = limited_use_contract.usage_counter.get(accounts.alice).unwrap();
             assert_eq!(2, usage_tracker_3[0].access_attempts);
         }
-
     }
 }

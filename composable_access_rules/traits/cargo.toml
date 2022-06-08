@@ -18,7 +18,7 @@ scale-info = { version = "2.0.0", default-features = false, features = ["derive"
 [lib]
 name = "traits"
 path = "lib.rs"
-crate-type = ["rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["std"]
@@ -30,7 +30,6 @@ std = [
     "ink_storage/std",
     "ink_lang/std",
     "scale/std",
-    "scale-info",
     "scale-info/std",
 ]
 ink-as-dependency = []

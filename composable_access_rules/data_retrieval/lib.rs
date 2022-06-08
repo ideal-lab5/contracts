@@ -1,5 +1,4 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(trivial_bounds)]
 //!
 //! Data Retrieval Contract
 //! 
@@ -74,7 +73,6 @@ mod rule_executor {
     use traits::ComposableAccessRule;
 
     #[ink(storage)]
-    // #[derive(SpreadAllocate)]
     pub struct RuleExecutor {
         single_use_rule: LimitedUseRuleRef,
     }
@@ -100,7 +98,7 @@ mod rule_executor {
                     )
                 });
             Self {
-                single_use_rule
+                single_use_rule,
             }
         }
 
@@ -108,7 +106,7 @@ mod rule_executor {
         pub fn execute(&mut self, asset_id: u32) {      
             let contract_acct = self.env().account_id();
             let caller = self.env().caller();
-            self.single_use_rule.execute(asset_id, caller);
+            // self.single_use_rule.execute(asset_id, caller);
             self.env().extension().submit_results(contract_acct, asset_id.clone(), caller, true).map_err(|_| {}).ok();
             self.env().extension().request_bytes(asset_id.clone()).map_err(|_| {}).ok();
         }

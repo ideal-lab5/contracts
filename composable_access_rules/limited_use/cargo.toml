@@ -20,19 +20,22 @@ traits = { path = "../traits", default-features = false }
 [lib]
 name = "limited_use_rule"
 path = "lib.rs"
-crate-type = ["cdylib", "rlib"]
+crate-type = [
+    # used for normal contract wasm blobs
+    "cdylib", 
+    # used for ABI generation
+    "rlib"
+]
 
 [features]
 default = ["std"]
 std = [
     "ink_primitives/std",
-    "ink_metadata",
     "ink_metadata/std",
     "ink_env/std",
     "ink_storage/std",
     "ink_lang/std",
     "scale/std",
-    "scale-info",
     "scale-info/std",
 ]
 ink-as-dependency = []
