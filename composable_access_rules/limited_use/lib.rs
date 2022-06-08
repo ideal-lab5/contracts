@@ -14,19 +14,20 @@
 //! # Execute
 //! 
 //! 
-
-use ink_env::Environment;
 use ink_lang as ink;
-use ink_storage::traits::{SpreadLayout, PackedLayout};
+use ink_storage::traits::{
+    SpreadLayout, 
+    PackedLayout, 
+    SpreadAllocate
+};
 
 pub use self::limited_use_rule::{
     LimitedUseRule,
     LimitedUseRuleRef,
 };
 
-// TODO: change name?
 #[derive(
-    scale::Encode, scale::Decode, PartialEq, Debug, Clone, Copy, SpreadLayout, PackedLayout,
+    scale::Encode, scale::Decode, PartialEq, Debug, Clone, Copy, SpreadLayout, PackedLayout, SpreadAllocate,
 )]
 #[cfg_attr(
     feature = "std",
@@ -43,24 +44,6 @@ mod limited_use_rule {
     use traits::ComposableAccessRule;
     use crate::Usage;
     use ink_prelude::vec::Vec;
-
-    #[ink(event)]
-    pub struct RegistrationSuccessful{}
-
-    #[ink(event)]
-    pub struct AlreadyRegistered{}
-
-    #[ink(event)]
-    pub struct CallerIsNotOwner{}
-
-    #[ink(event)]
-    pub struct ExecutionSuccessful{}
-
-    #[ink(event)]
-    pub struct ExecutionFailed{}
-
-    #[ink(event)]
-    pub struct AssetNotRegistered{}
 
     #[ink(event)]
     pub struct LimitExceeded{}
@@ -92,6 +75,7 @@ mod limited_use_rule {
     }
 
     impl ComposableAccessRule for LimitedUseRule {
+
         /// check if the number of times a caller has attempted access to the asset 
         /// exceeds the pre-defined limit amount
         /// 
@@ -127,7 +111,6 @@ mod limited_use_rule {
                 self.env().emit_event(AccessAllowed{});
                 return true;
             }
-            false
         }
     }
 

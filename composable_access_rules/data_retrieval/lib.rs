@@ -70,32 +70,46 @@ impl Environment for CustomEnvironment {
 #[ink::contract(env = crate::CustomEnvironment)]
 mod rule_executor {
     use ink_storage::traits::SpreadAllocate;
+    use limited_use_rule::LimitedUseRuleRef;
+    use traits::ComposableAccessRule;
 
     #[ink(storage)]
-    #[derive(SpreadAllocate)]
+    // #[derive(SpreadAllocate)]
     pub struct RuleExecutor {
-
+        single_use_rule: LimitedUseRuleRef,
     }
 
     impl RuleExecutor {
         #[ink(constructor)]
-        pub fn new() -> Self {
-            Self { }
-            // INITIALIZE RULES
-            // ink_lang::utils::initialize_contract(|contract: &mut Self| {
-            //     contract.limit = limit;
-            // })
+        pub fn new(
+            version: u32,
+            single_use_rule_code_hash: Hash,
+        ) -> Self {
+            // initialize rules
+            let total_balance = Self::env().balance();
+            let salt = version.to_le_bytes();
+            let single_use_rule = LimitedUseRuleRef::new(1)
+                .endowment(total_balance/4)
+                .code_hash(single_use_rule_code_hash)
+                .salt_bytes(salt)
+                .instantiate()
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "failed at instantiating the Limited Use Rule contract: {:?}",
+                        error
+                    )
+                });
+            Self {
+                single_use_rule
+            }
         }
 
         #[ink(message, payable)]
         pub fn execute(&mut self, asset_id: u32) {      
             let contract_acct = self.env().account_id();
             let caller = self.env().caller();
-            // Execute each rule
-            
-            // submit result
+            self.single_use_rule.execute(asset_id, caller);
             self.env().extension().submit_results(contract_acct, asset_id.clone(), caller, true).map_err(|_| {}).ok();
-            // call request bytes
             self.env().extension().request_bytes(asset_id.clone()).map_err(|_| {}).ok();
         }
     }

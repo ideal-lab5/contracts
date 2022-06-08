@@ -14,7 +14,8 @@ ink_lang = { version = "3.0.0", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"], optional = true }
-# limited_use_contract = { path = "../composable_access_rules/limited_use", default-features = false, features=["ink-as-dependency"] }
+traits = { path = "../traits", default-features = false, features = ["ink-as-dependency"] }
+limited_use_rule = { path = "../limited_use", default-features = false, features = ["ink-as-dependency"] }
 
 [lib]
 name = "rule_executor"
