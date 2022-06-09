@@ -59,7 +59,7 @@ mod limited_use_rule {
     }
 
     impl LimitedUseRule {
-        #[ink(constructor)]
+        #[ink(constructor, payable)]
         pub fn new(limit: u32) -> Self {
             if limit <= 0 {
                 panic!("limit must be positive");
@@ -81,7 +81,7 @@ mod limited_use_rule {
         /// 
         /// * `asset_id`: The asset to which access is attempted
         /// 
-        #[ink(message, payable)]
+        #[ink(message)]
         fn execute(&mut self, asset_id: u32, consumer: ink_env::AccountId) -> bool {
             if let Some(mut usage_attempts) = self.usage_counter.get(&consumer) {
                 let index = usage_attempts.iter().position(|x| x.asset_id == asset_id).unwrap();

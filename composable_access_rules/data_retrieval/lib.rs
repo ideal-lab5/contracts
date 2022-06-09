@@ -1,5 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-//!
+//! 
 //! Data Retrieval Contract
 //! 
 //! # Goal
@@ -70,7 +70,7 @@ impl Environment for CustomEnvironment {
 mod rule_executor {
     use ink_storage::traits::SpreadAllocate;
     use limited_use_rule::LimitedUseRuleRef;
-    use traits::ComposableAccessRule;
+    // use traits::ComposableAccessRule;
 
     #[ink(storage)]
     pub struct RuleExecutor {
@@ -78,7 +78,7 @@ mod rule_executor {
     }
 
     impl RuleExecutor {
-        #[ink(constructor)]
+        #[ink(constructor, payable)]
         pub fn new(
             version: u32,
             single_use_rule_code_hash: Hash,

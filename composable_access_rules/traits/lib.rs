@@ -15,12 +15,12 @@ pub trait ComposableAccessRule {
     /// 
     /// * `asset_id`: The asset id to verify access to
     /// 
-    #[ink(message, payable)]
+    #[ink(message)]
     fn execute(&mut self, asset_id: u32, consumer: ink_env::AccountId) -> bool;
 }
 
-#[ink::trait_definition]
-pub trait RuleExecutor {
-    #[ink(message, payable)]
-    fn execute(&mut self, asset_id: u32);
-}
+// #[ink::trait_definition]
+// pub trait RuleExecutor {
+//     #[ink(message, payable)]
+//     fn execute(&mut self, asset_id: u32);
+// }

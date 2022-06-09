@@ -6,15 +6,15 @@ edition = "2021"
 rust-version = "1.56.1"
 
 [dependencies]
-ink_primitives = { version = "3.0.0", default-features = false }
-ink_metadata = { version = "3.0.0", default-features = false, features = ["derive"], optional = true }
-ink_env = { version = "3.0.0", default-features = false }
-ink_storage = { version = "3.0.0", default-features = false }
-ink_lang = { version = "3.0.0", default-features = false }
+ink_primitives = { version = "3.0.0-rc8", default-features = false }
+ink_metadata = { version = "3.0.0-rc8", default-features = false, features = ["derive"], optional = true }
+ink_env = { version = "3.0.0-rc8", default-features = false }
+ink_storage = { version = "3.0.0-rc8", default-features = false }
+ink_lang = { version = "3.0.0-rc8", default-features = false }
 
 scale = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"], optional = true }
-traits = { path = "../traits", default-features = false, features = ["ink-as-dependency"] }
+# traits = { path = "../traits", default-features = false, features = ["ink-as-dependency"] }
 limited_use_rule = { path = "../limited_use", default-features = false, features = ["ink-as-dependency"] }
 
 [lib]
@@ -32,7 +32,7 @@ std = [
     "ink_lang/std",
     "scale/std",
     "scale-info/std",
-    "traits/std",
+    # "traits/std",
     "limited_use_rule/std",
 ]
 ink-as-dependency = []

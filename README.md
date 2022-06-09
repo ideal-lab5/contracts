@@ -1,6 +1,8 @@
-# Contracts
+# Iris Contracts
 
-A collection of smart contracts used on the [iris blockchain](https://github.com/iridium-labs/substrate/tree/iris).
+[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink)
+
+A collection of smart contracts used on the [iris blockchain](https://github.com/ideal-lab5/substrate/tree/iris).
 
 ## Setup
 
