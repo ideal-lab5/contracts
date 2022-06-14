@@ -59,7 +59,7 @@ mod limited_use_rule {
     }
 
     impl LimitedUseRule {
-        #[ink(constructor, payable)]
+        #[ink(constructor)]
         pub fn new(limit: u32) -> Self {
             if limit <= 0 {
                 panic!("limit must be positive");
