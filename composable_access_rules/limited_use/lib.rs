@@ -8,12 +8,6 @@
 //! of times an address may use a token to access data associated with the 
 //! asset class
 //! 
-//! # Register
-//! The asset registry maps the asset id to the owner (can probably remove owner?)
-//! 
-//! # Execute
-//! 
-//! 
 use ink_lang as ink;
 use ink_storage::traits::{
     SpreadLayout, 
@@ -141,7 +135,7 @@ mod limited_use_rule {
         }
 
         /**
-         * Tests for the `register` function
+         * Tests for the `execute` function
          */
 
         fn setup_test(limit: u32, default_account: ink_env::AccountId) -> LimitedUseRule {

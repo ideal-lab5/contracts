@@ -10,9 +10,9 @@
 //! 
 //! ## Functions
 //! 
-//! ### unlock_data
+//! ### execute
 //! 
-//! Fetchs car addresses, executes each one, and submits a request to eject bytes from the network
+//! Execute each composable access rule. In this case, we only execute the single use contract
 //! 
 //! 
 
@@ -24,11 +24,8 @@ use ink_lang as ink;
 pub trait Iris {
     type ErrorCode = IrisErr;
 
-    #[ink(extension = 6, returns_result = false)]
+    #[ink(extension = 5, returns_result = false)]
     fn submit_results(caller: ink_env::AccountId, asset_id: u32, consumer: ink_env::AccountId, result: bool) -> [u8; 32];
-
-    #[ink(extension = 7, returns_result = false)]
-    fn request_bytes(caller: ink_env::AccountId, asset_id: u32) -> [u8; 32];
 
 }
 
@@ -42,8 +39,7 @@ pub enum IrisErr {
 impl ink_env::chain_extension::FromStatusCode for IrisErr {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
-            6 => Err(Self::FailSubmitResults),
-            7 => Err(Self::FailRequestBytes),
+            5 => Err(Self::FailSubmitResults),
             _ => panic!("encountered unknown status code {:?}", status_code),
         }
     }
@@ -66,11 +62,19 @@ impl Environment for CustomEnvironment {
 }
 
 #[ink::contract(env = crate::CustomEnvironment)]
-// #[ink::contract]
 mod rule_executor {
     use ink_storage::traits::SpreadAllocate;
     use limited_use_rule::LimitedUseRuleRef;
     use traits::ComposableAccessRule;
+
+    #[ink(event)]
+    pub struct ResultsSubmitted{}
+
+    #[ink(event)]
+    pub struct DataRequestSubmitted{}
+
+    #[ink(event)]
+    pub struct RuleExecuted{}
 
     #[ink(storage)]
     pub struct RuleExecutor {
@@ -83,10 +87,12 @@ mod rule_executor {
         pub fn new(
             version: u32,
             single_use_rule_code_hash: Hash,
+            minimum_balance_rule_code_hash: Hash,
         ) -> Self {
             // initialize rules
             let total_balance = Self::env().balance();
             let salt = version.to_le_bytes();
+            // a token can be used only once
             let single_use_rule = LimitedUseRuleRef::new(1)
                 .endowment(total_balance/4)
                 .code_hash(single_use_rule_code_hash)
@@ -98,6 +104,8 @@ mod rule_executor {
             Self { 
                 version,
                 single_use_rule,
+                minimum_balance_rule,
+
             }
         }
 
@@ -105,21 +113,19 @@ mod rule_executor {
         pub fn execute(&mut self, asset_id: u32) {      
             let contract_acct = self.env().account_id();
             let caller = self.env().caller();
-            self.single_use_rule.execute(asset_id, caller);
+            single_use_result = self.single_use_rule.execute(asset_id, caller);
+            self.env().emit_event(RuleExecuted{});
+            let result = single_use_result;
+
             self.env()
                 .extension()
                 .submit_results(
                     contract_acct, 
                     asset_id.clone(), 
                     caller.clone(), 
-                    true
+                    result
                 );
-            self.env()
-                .extension()
-                .request_bytes(
-                    caller.clone(),
-                     asset_id.clone()
-                ).map_err(|_| {}).ok();
+            self.env().emit_event(ResultsSubmitted{});
         }
     }
 }
