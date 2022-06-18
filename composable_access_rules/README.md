@@ -4,11 +4,10 @@ Composable Access Rules allows data owners to implement custom logic that data c
 
 ## Usage
 
-Each composable access rule must implement the [ComposableAccessRule trait](./composable_access_rule.rs). To build a composable access rule, each contract must implement two functions:
+Each composable access rule must implement the [ComposableAccessRule trait](./composable_access_rule.rs).
+To build a composable access rule, each contract must implement the execute function:
 
-`register()`
-
-`execute()`
+`fn execute(&mut self, asset_id: u32, consumer: ink_env::AccountId) -> bool`
 
 ## Building
 
