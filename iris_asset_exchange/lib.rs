@@ -129,6 +129,28 @@ mod iris_asset_exchange {
             self.owner_registry.get(&asset_id).unwrap()
         }
 
+        /// Get the version of the contract
+        #[ink(message)]
+        pub fn get_version(&self) -> [u8; 32] {
+            // todo: this should be a constant
+            self.env().emit_event(ContractVersion{ version: 1u32 });
+            return [1; 32];
+        }
+
+        /// Fetch the price for a registered asset
+        /// * `asset_id`: The asset id to fetch the price for
+        #[ink(message)]
+        pub fn get_price(&self, asset_id: u32) -> u64 {
+            return self.price_registry.get(&asset_id).unwrap();
+        }
+
+        /// Fetch the owner of an asset id
+        /// * `asset_id`: The asset id to fetch the owner of
+        #[ink(message)]
+        pub fn get_owner(&self, asset_id: u32) -> AccountId {
+            return self.owner_registry.get(&asset_id).unwrap();
+        }
+
         /// Provide pricing for a static amount of assets.
         /// 
         /// This function mints new assets from an asset class owned by the caller 
@@ -142,7 +164,6 @@ mod iris_asset_exchange {
          #[ink(message)]
          pub fn publish_sale(&mut self, asset_id: u32, amount: u64, price: u64) {
             let caller = self.env().caller();
-            // TODO: add asset id ownerhsip check
             self.env()
                 .extension()
                 .mint(
