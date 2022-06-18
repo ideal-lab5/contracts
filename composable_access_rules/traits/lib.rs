@@ -18,9 +18,3 @@ pub trait ComposableAccessRule {
     #[ink(message)]
     fn execute(&mut self, asset_id: u32, consumer: ink_env::AccountId) -> bool;
 }
-
-// #[ink::trait_definition]
-// pub trait RuleExecutor {
-//     #[ink(message, payable)]
-//     fn execute(&mut self, asset_id: u32);
-// }

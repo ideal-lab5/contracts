@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 //! 
-//! Data Retrieval Contract
+//! Rule Executor Contract
 //! 
 //! # Goal
 //! This contract allows data consumers to unlock data for which
@@ -12,7 +12,8 @@
 //! 
 //! ### execute
 //! 
-//! Execute each composable access rule. In this case, we only execute the single use contract
+//! Execute each composable access rule. In this case, we only execute the single use rule.
+//! After execution, report results on chain
 //! 
 //! 
 
@@ -87,7 +88,6 @@ mod rule_executor {
         pub fn new(
             version: u32,
             single_use_rule_code_hash: Hash,
-            minimum_balance_rule_code_hash: Hash,
         ) -> Self {
             // initialize rules
             let total_balance = Self::env().balance();
@@ -104,7 +104,6 @@ mod rule_executor {
             Self { 
                 version,
                 single_use_rule,
-                minimum_balance_rule,
 
             }
         }
@@ -113,7 +112,7 @@ mod rule_executor {
         pub fn execute(&mut self, asset_id: u32) {      
             let contract_acct = self.env().account_id();
             let caller = self.env().caller();
-            single_use_result = self.single_use_rule.execute(asset_id, caller);
+            let single_use_result = self.single_use_rule.execute(asset_id, caller);
             self.env().emit_event(RuleExecuted{});
             let result = single_use_result;
 
