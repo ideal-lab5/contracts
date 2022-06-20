@@ -1,9 +1,13 @@
 [package]
 name = "limited_use_rule"
-version = "0.1.0"
-authors = ["Tony Riemer <driemworks@idealabs.network>"]
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.56.1"
+authors = ["Ideal Labs Developers <https://github.com/ideal-lab5>"]
+homepage = "https://idealabs.networks/"
+license = "GPL-3.0-or-later"
+publish = false
+repository = "https://github.com/ideal-lab5/iris"
 
 [dependencies]
 ink_primitives = { version = "3.0.0-rc8", default-features = false }
