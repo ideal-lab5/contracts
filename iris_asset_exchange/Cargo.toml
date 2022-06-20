@@ -1,16 +1,21 @@
 [package]
 name = "iris_asset_exchange"
-version = "0.1.0"
-authors = ["Tony Riemer <driemworks@iridium.industries>"]
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.56.1"
+authors = ["Ideal Labs Developers <https://github.com/ideal-lab5>"]
+homepage = "https://idealabs.networks/"
+license = "GPL-3.0-or-later"
+publish = false
+repository = "https://github.com/ideal-lab5/iris"
 
 [dependencies]
-ink_primitives = { version = "3.0.0", default-features = false }
-ink_metadata = { version = "3.0.0", default-features = false, features = ["derive"], optional = true }
-ink_env = { version = "3.0.0", default-features = false }
-ink_storage = { version = "3.0.0", default-features = false }
-ink_lang = { version = "3.0.0", default-features = false }
+ink_primitives = { version = "3.0.0-rc8", default-features = false }
+ink_metadata = { version = "3.0.0-rc8", default-features = false, features = ["derive"], optional = true }
+ink_env = { version = "3.0.0-rc8", default-features = false }
+ink_storage = { version = "3.0.0-rc8", default-features = false }
+ink_lang = { version = "3.0.0-rc8", default-features = false }
+
 
 scale = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.0.0", default-features = false, features = ["derive"], optional = true }

@@ -1,16 +1,14 @@
-# Contracts
+# Iris Contracts
 
-A collection of smart contracts used on the [iris blockchain](https://github.com/iridium-labs/substrate/tree/iris).
+[![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink)
+
+A collection of smart contracts used on the [iris blockchain](https://github.com/ideal-lab5/iris).
 
 ## Setup
 
 Follow the [ink! documentation](https://paritytech.github.io/ink-docs/getting-started/setup) for a complete guide on getting started.
 
 To compile a wasm blob and metadata for a contract, navigate to the contract's root directory and run:
-
-``` bash
-cargo +nightly contract build
-```
 
 ### Note on Binaryen/wasm-opt
 

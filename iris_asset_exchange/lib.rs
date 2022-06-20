@@ -1,3 +1,20 @@
+// This file is part of Iris.
+//
+// Copyright (C) 2022 Ideal Labs.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ink_env::Environment;
@@ -14,10 +31,10 @@ pub trait Iris {
     #[ink(extension = 1, returns_result = false)]
     fn mint(caller: ink_env::AccountId, target: ink_env::AccountId, asset_id: u32, amount: u64) -> [u8; 32];
 
-    #[ink(extension = 2, returns_result = false)]
+    #[ink(extension = 3, returns_result = false)]
     fn lock(amount: u64) -> [u8; 32];
 
-    #[ink(extension = 3, returns_result = false)]
+    #[ink(extension = 4, returns_result = false)]
     fn unlock_and_transfer(target: ink_env::AccountId) -> [u8; 32];
 }
 
@@ -35,8 +52,8 @@ impl ink_env::chain_extension::FromStatusCode for IrisErr {
         match status_code {
             0 => Err(Self::FailTransferAsset),
             1 => Err(Self::FailMintAssets),
-            2 => Err(Self::FailLockCurrency),
-            3 => Err(Self::FailUnlockCurrency),
+            3 => Err(Self::FailLockCurrency),
+            4 => Err(Self::FailUnlockCurrency),
             _ => panic!("encountered unknown status code"),
         }
     }
@@ -59,10 +76,11 @@ impl Environment for CustomEnvironment {
     type ChainExtension = Iris;
 }
 
-#[ink::contract(env = crate::CustomEnvironment)]
+// #[ink::contract(env = crate::CustomEnvironment)]
+#[ink::contract]
 mod iris_asset_exchange {
     // use ink_lang as ink;
-    use super::IrisErr;
+    // use super::IrisErr;
     use ink_storage::traits::SpreadAllocate;
 
     /// Defines the storage of our contract.
@@ -100,9 +118,32 @@ mod iris_asset_exchange {
         }
 
         /// Default constructor
-        #[ink(constructor, payable)]
+        #[ink(constructor)]
         pub fn default() -> Self {
-            Self::new()
+            // Self::new()
+            ink_lang::utils::initialize_contract(|_| {})
+        }
+
+        /// Get the version of the contract
+        #[ink(message)]
+        pub fn get_version(&self) -> [u8; 32] {
+            // todo: this should be a constant
+            self.env().emit_event(ContractVersion{ version: 1u32 });
+            [1; 32]
+        }
+
+        /// Fetch the price for a registered asset
+        /// * `asset_id`: The asset id to fetch the price for
+        #[ink(message)]
+        pub fn get_price(&self, asset_id: u32) -> u64 {
+            self.price_registry.get(&asset_id).unwrap()
+        }
+
+        /// Fetch the owner of an asset id
+        /// * `asset_id`: The asset id to fetch the owner of
+        #[ink(message)]
+        pub fn get_owner(&self, asset_id: u32) -> AccountId {
+            self.owner_registry.get(&asset_id).unwrap()
         }
 
         /// Get the version of the contract

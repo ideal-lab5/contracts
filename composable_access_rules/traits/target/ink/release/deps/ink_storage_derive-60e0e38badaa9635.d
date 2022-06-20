@@ -1,0 +1,9 @@
+/mnt/c/users/tonyr/work/driemworks/contracts/composable_access_rules/traits/target/ink/release/deps/libink_storage_derive-60e0e38badaa9635.so: /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/lib.rs /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/packed_layout.rs /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/spread_allocate.rs /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/spread_layout.rs /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/storage_layout.rs
+
+/mnt/c/users/tonyr/work/driemworks/contracts/composable_access_rules/traits/target/ink/release/deps/ink_storage_derive-60e0e38badaa9635.d: /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/lib.rs /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/packed_layout.rs /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/spread_allocate.rs /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/spread_layout.rs /home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/storage_layout.rs
+
+/home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/lib.rs:
+/home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/packed_layout.rs:
+/home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/spread_allocate.rs:
+/home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/spread_layout.rs:
+/home/driemworks/.cargo/registry/src/github.com-1ecc6299db9ec823/ink_storage_derive-3.2.0/src/storage_layout.rs:
