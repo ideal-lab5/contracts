@@ -36,6 +36,7 @@
 
 use ink_env::Environment;
 use ink_lang as ink;
+use ink_prelude::string::String;
 
 /// Functions to interact with the Iris runtime as defined in runtime/src/lib.rs
 #[ink::chain_extension]
@@ -43,7 +44,7 @@ pub trait Iris {
     type ErrorCode = IrisErr;
 
     #[ink(extension = 5, returns_result = false)]
-    fn submit_results(caller: ink_env::AccountId, asset_id: u32, consumer: ink_env::AccountId, result: bool) -> [u8; 32];
+    fn submit_results(caller: ink_env::AccountId, consumer: ink_env::AccountId, asset_id: u32, public_key: String, result: bool) -> [u8; 32];
 
 }
 
@@ -82,6 +83,7 @@ impl Environment for CustomEnvironment {
 #[ink::contract(env = crate::CustomEnvironment)]
 mod rule_executor {
     use ink_storage::traits::SpreadAllocate;
+    use ink_prelude::string::String;
     use limited_use_rule::LimitedUseRuleRef;
     use traits::ComposableAccessRule;
 
@@ -125,8 +127,13 @@ mod rule_executor {
             }
         }
 
+        /// Execute the rules specified in the executor
+        /// 
+        /// * `asset_id`: The asset id associated with the data to be accessed
+        /// * `public_key`: An x25519 public key 
+        /// 
         #[ink(message)]
-        pub fn execute(&mut self, asset_id: u32) {      
+        pub fn execute(&mut self, asset_id: u32, public_key: String) {      
             let contract_acct = self.env().account_id();
             let caller = self.env().caller();
             let single_use_result = self.single_use_rule.execute(asset_id, caller);
@@ -136,9 +143,10 @@ mod rule_executor {
             self.env()
                 .extension()
                 .submit_results(
-                    contract_acct, 
+                    contract_acct,
+                    caller.clone(),
                     asset_id.clone(), 
-                    caller.clone(), 
+                    public_key.clone(),
                     result
                 );
             self.env().emit_event(ResultsSubmitted{});
