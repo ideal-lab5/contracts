@@ -72,9 +72,6 @@ mod limited_use_rule {
     impl LimitedUseRule {
         #[ink(constructor)]
         pub fn new(limit: u32) -> Self {
-            if limit <= 0 {
-                panic!("limit must be positive");
-            }
             ink_lang::utils::initialize_contract(|contract: &mut Self| {
                 contract.limit = limit;
             })
@@ -83,6 +80,24 @@ mod limited_use_rule {
         #[ink(message)]
         pub fn get_limit(&self) -> u32 {
             self.limit
+        }
+
+        #[ink(message)]
+        pub fn get_attempts_count(&self, asset_id: u32) -> u32 {
+            let caller = self.env().caller();
+            let mut usage_attempts = 0;
+            match self.usage_counter.get(caller) {
+                Some(usages) => {
+                    let filtered_usages = usages.iter().filter(|u| u.asset_id == asset_id).collect::<Vec<_>>();
+                    for usage in filtered_usages.iter() {
+                        usage_attempts = usage.access_attempts;
+                    }
+                },
+                None => {
+                    // do nothing
+                }
+            }
+            usage_attempts
         }
     }
 
@@ -135,20 +150,6 @@ mod limited_use_rule {
             let limit = 10;
             let limited_use_contract = LimitedUseRule::new(limit);
             assert_eq!(limit, limited_use_contract.get_limit());
-        }
-
-        #[ink::test]
-        #[should_panic]
-        fn panic_when_new_contract_with_zero_limit() {
-            let limit = 0;
-            let limited_use_contract = LimitedUseRule::new(limit);
-        }
-
-        #[ink::test]
-        #[should_panic]
-        fn panic_when_new_contract_with_negative_limit() {
-            let limit = -10;
-            let limited_use_contract = LimitedUseRule::new(limit);
         }
 
         /**
