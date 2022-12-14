@@ -42,7 +42,7 @@ use ink_lang as ink;
 pub trait Iris {
     type ErrorCode = IrisErr;
 
-    #[ink(extension = 5, returns_result = false)]
+    #[ink(extension = 4, returns_result = false)]
     fn submit_results(caller: ink_env::AccountId, consumer: ink_env::AccountId, asset_id: u32, result: bool, public_key: [u8;32]) -> [u8; 32];
 
 }
@@ -57,7 +57,7 @@ pub enum IrisErr {
 impl ink_env::chain_extension::FromStatusCode for IrisErr {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
-            5 => Err(Self::FailSubmitResults),
+            4 => Err(Self::FailSubmitResults),
             _ => panic!("encountered unknown status code {:?}", status_code),
         }
     }
