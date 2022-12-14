@@ -1,2 +1,0 @@
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=/mnt/c/users/tonyr/work/driemworks/contracts/composable_access_rules/traits/target/ink/release/build/typenum-398017e094ee7987/out/consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=/mnt/c/users/tonyr/work/driemworks/contracts/composable_access_rules/traits/target/ink/release/build/typenum-398017e094ee7987/out/op.rs
