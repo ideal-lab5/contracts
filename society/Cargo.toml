@@ -1,0 +1,38 @@
+[package]
+name = "society"
+version = "0.1.0"
+authors = ["[your_name] <[your_email]>"]
+edition = "2021"
+
+[dependencies]
+ink = { version = "4.0.1", default-features = false }
+
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2.3", default-features = false, features = ["derive"], optional = true }
+
+dkg-core = { git = "https://github.com/ideal-lab5/dkg", branch="main", default-features = false }
+ark-ec = { version = "0.4.0", default-features = false }
+ark-ff = { version = "0.4.0", default-features = false }
+ark-serialize = { version = "0.4.0", default-features = false }
+ark-bls12-381 = { version = "0.4.0", features = ["curve"], default-features = false }
+
+[dev-dependencies]
+ink_e2e = "4.0.1"
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+    "dkg-core/std",
+    "ark-bls12-381/std",
+    "ark-ec/std",
+    "ark-ff/std",
+    "ark-serialize/std",
+]
+ink-as-dependency = []
+e2e-tests = []
