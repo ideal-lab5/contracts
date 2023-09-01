@@ -1,8 +1,6 @@
-# Iris Contracts
+# Contracts
 
 [![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink)
-
-A collection of smart contracts used on the [iris blockchain](https://github.com/ideal-lab5/iris).
 
 ## Setup
 
@@ -46,17 +44,3 @@ cargo +nightly contract build
 ``` bash
 cargo test 
 ```
-
-## Deployment
-
-The simplest method to deploy contracts is to use the polkadot.js ui. After starting an Iris node, navigate to the contracts tab and follow the instructions [here](https://docs.substrate.io/tutorials/v3/ink-workshop/pt1/#creating-an-ink-project).
-
-## Contracts
-
-### Iris Asset Exchange
-
-A decentralized marketplace for exchanging tokens for assets. That is, a marketplace for buying and selling access to and ownership of data.
-
-### Composable Access Rules
-
-Composable Access Rules is a set of contracts that data owners can use to configure additional business logic that must be executed before consumers can access data. These contracts execute when a consumer (token holder) requests data from the network. Rules include contracts such as a "single use" for an owned asset, or placing expiration dates on assets.
