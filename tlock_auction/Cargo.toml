@@ -1,5 +1,5 @@
 [package]
-name = "timelock-commit-reveal"
+name = "timelock-auction"
 version = "0.1.0"
 authors = ["Tony Riemer <driemworks@idealabs.network>"]
 edition = "2021"
@@ -11,10 +11,11 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 
 #crypto = { git = "https://github.com/ideal-lab5/etf-sdk", branch = "m3", default-features = false }
-tlock = { package = "crypto", path = "../../etf-sdk/crypto" }
+crypto = { package = "crypto", path = "../../etf-sdk/crypto" }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
+rand_chacha = { version = "0.3.1", default-features = false }
 
 [lib]
 path = "lib.rs"
