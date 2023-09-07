@@ -1,8 +1,52 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
-//use tlock;
 
-#[ink::contract]
+use ink_env::Environment;
+
+#[ink::chain_extension]
+pub trait ETF {
+    type ErrorCode = EtfErr;
+
+    /// check if a block has been authored in a given slot
+    #[ink(extension = 1101, handle_status = false)]
+    fn check_slot(slot_id: u32) -> bool;
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum EtfErr {
+    FailCheckSlot,
+}
+
+impl ink_env::chain_extension::FromStatusCode for EtfErr {
+    fn from_status_code(status_code: u32) -> Result<(), Self> {
+        match status_code {
+            0 => Ok(()),
+            1101 => Err(Self::FailCheckSlot),
+            _ => panic!("encountered unknown status code"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+pub enum CustomEnvironment {}
+
+impl Environment for CustomEnvironment {
+    const MAX_EVENT_TOPICS: usize =
+        <ink_env::DefaultEnvironment as Environment>::MAX_EVENT_TOPICS;
+
+    type AccountId = <ink_env::DefaultEnvironment as Environment>::AccountId;
+    type Balance = <ink_env::DefaultEnvironment as Environment>::Balance;
+    type Hash = <ink_env::DefaultEnvironment as Environment>::Hash;
+    type BlockNumber = <ink_env::DefaultEnvironment as Environment>::BlockNumber;
+    type Timestamp = <ink_env::DefaultEnvironment as Environment>::Timestamp;
+
+    type ChainExtension = ETF;
+}
+
+#[ink::contract(env = crate::CustomEnvironment)]
 mod tlock_auction {
+    use super::EtfErr;
     use ink::storage::Mapping;
     use ink::prelude::vec::Vec;
 
@@ -10,17 +54,30 @@ mod tlock_auction {
         client::client::{DefaultEtfClient, EtfClient},
         ibe::fullident::BfIbe,
     };
-    
+      
+    /// represent the asset being auctioned
+    #[derive(Debug, scale::Decode, scale::Encode)]
+    #[cfg_attr(
+        feature = "std",
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+    )]
+    pub struct AuctionItem {
+        pub name: Vec<u8>,
+        pub asset_id: u32,
+        pub amount: u8,
+    }
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
     #[ink(storage)]
     pub struct TlockAuction {
+        auction_item: AuctionItem,
         /// the slot schedule for this contract
-        slot_ids: Vec<Vec<u8>>,
+        slot_ids: Vec<u32>,
         threshold: u8,
         proposals: Mapping<AccountId, (Vec<u8>, Vec<u8>, Vec<Vec<u8>>)>, // ciphertext, nonce, capsule
+        // deposits: Mapping<AccountId, Balance>,
         /// ink mapping has no support for iteration so we need to loop over this vec to read through the proposals
         /// but maybe could do a struct instead? (acctid, vec, vec, vec)
         participants: Vec<AccountId>,
@@ -36,16 +93,22 @@ mod tlock_auction {
         // pub struct PublishedBid;
 
         /// Constructor that initializes the `bool` value to the given `init_value`.
-        #[ink(constructor)]
+        #[ink(constructor, payable)]
         pub fn new(
-            slot_ids: Vec<Vec<u8>>,
+            name: Vec<u8>,
+            asset_id: u32,
+            amount: u8,
+            slot_ids: Vec<u32>,
             threshold: u8,
         ) -> Self {
+            let auction_item = AuctionItem { name, asset_id, amount };
             let proposals = Mapping::default();
             let participants: Vec<AccountId> = Vec::new();
             let winners: Vec<AccountId> = Vec::new();
             let revealed_bids: Vec<Vec<u8>> = Vec::new();
+            // check that they own the asset
             Self {
+                auction_item,
                 slot_ids,
                 threshold,
                 proposals,
@@ -61,6 +124,8 @@ mod tlock_auction {
         #[ink(constructor)]
         pub fn default() -> Self {
             Self::new(
+                b"".to_vec(),
+                0, 0,
                 Default::default(),
                 Default::default(),
             )
@@ -74,10 +139,22 @@ mod tlock_auction {
         // add your proposal
         // a proposal is a signed, timelocked tx that calls the 'bid' function of this contract
         #[ink(message, payable)]
-        pub fn propose(&mut self, deposit: Balance, ciphertext: Vec<u8>, nonce: Vec<u8>, capsule: Vec<Vec<u8>>) {
+        pub fn propose(&mut self, ciphertext: Vec<u8>, nonce: Vec<u8>, capsule: Vec<Vec<u8>>) {
             let caller = self.env().caller();
             // if after deadline then return an error
+            // TODO: Should there be some validation on owner? this call will fail if the owner is incorrect anyway
+            // check if the last slot has passed
+            let is_past_deadline = self.env()
+                .extension()
+                .check_slot(self.slot_ids[self.slot_ids.len() - 1]);
+            if is_past_deadline {
+                // STOP here, return error
+            }
             // 2. other checks? [no duplicates, block_list, allow_list]
+            // verify min deposit (later)
+            // let balance = Self::env().transferred_value();
+            // Self::env().transfer(to, balance)?;
+
             if !self.participants.contains(&caller.clone()) {
                 self.participants.push(caller.clone());
             }
@@ -89,22 +166,32 @@ mod tlock_auction {
 
         #[ink(message)]
         pub fn bid(&mut self, amount: Balance) {
-            // if before the deadline, return an error
-            if self.winners.contains(&self.env().caller()) {
-                // payout amount to owner
-                // self.env().transfer(self.env().account_id(), amount);
-                // owner transfers nft to winner
+            let is_past_deadline = self.env()
+                .extension()
+                .check_slot(self.slot_ids[self.slot_ids.len() - 1]);
+            if is_past_deadline {
+                // if before the deadline, return an error
+                if self.winners.contains(&self.env().caller()) {
+                    // payout amount to owner
+                    // self.env().transfer(self.env().account_id(), amount);
+                    // owner transfers nft to winner
+                } else {
+                    // you lost, return deposit 
+                }
             } else {
-                // you lost, return deposit 
+                // return error
             }
         }
 
         #[ink(message)]
         pub fn complete(&mut self, pp: Vec<u8>, secrets: Vec<Vec<u8>>) {
+            let is_past_deadline = self.env()
+                .extension()
+                .check_slot(self.slot_ids[self.slot_ids.len() - 1]);
+            if !is_past_deadline {
+                // STOP here, return error
+            }
             // 1. ensure past deadline
-            // 2. decrypt each guess and compare with the commitment
-            // let mut messages = Vec::new();
-            // let ibe_pp = fetch_from_chain_ext();
             self.participants.iter().for_each(|p| {
                 self.proposals.get(&p).iter().for_each(|proposal| {
                     let signed_tx = DefaultEtfClient::<BfIbe>::decrypt(
@@ -113,7 +200,7 @@ mod tlock_auction {
                         secrets.clone(),
                     ).unwrap();
                     // need to decode the tx and get the amount and use it to identify the winner
-                    // 1. decode + verify
+                    // 1. decode (how?!) + verify
                     // 2. check if winner
                     self.revealed_bids.push(signed_tx);
                 });
@@ -124,7 +211,7 @@ mod tlock_auction {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crypto::testing::{random_ibe_params, ibe_extract};
+        use crypto::testing::{test_ibe_params, ibe_extract};
         use rand_chacha::{
             rand_core::SeedableRng,
             ChaCha20Rng
@@ -141,12 +228,15 @@ mod tlock_auction {
             let slot_ids = vec![vec![1,2,3], vec![2,3,4], vec![3,4,5]];
             let threshold = 2;
             // we'll pretend that the blockchain is seeded with these params
-            let ibe_params = random_ibe_params();
+            let ibe_params = test_ibe_params();
             let seed_hash = crypto::utils::sha256(&crypto::utils::sha256(b"test0"));
             let rng = ChaCha20Rng::from_seed(seed_hash.try_into().expect("should be 32 bytes; qed"));
-            let mut auction = TlockAuction::new(slot_ids.clone(), threshold);
+            // setup the auction contract
+            let mut auction = TlockAuction::new(b"test1".to_vec(), 1u32, 1u8, slot_ids.clone(), threshold);
+
             let res = add_bid(slot_ids, threshold, ibe_params.0, ibe_params.1, rng);
-            auction.propose(1, res.0.clone(), res.1.clone(), res.2.clone());
+            auction.propose(res.0.clone(), res.1.clone(), res.2.clone());
+
             let participants = auction.participants;
             assert_eq!(participants.clone().len(), 1);
             assert_eq!(auction.proposals.get(participants[0]), 
@@ -159,12 +249,13 @@ mod tlock_auction {
             let slot_ids = vec![vec![1,2,3], vec![2,3,4], vec![3,4,5]];
             let threshold = 2;
             // we'll pretend that the blockchain is seeded with these params
-            let ibe_params = random_ibe_params();
+            let ibe_params = test_ibe_params();
             let seed_hash = crypto::utils::sha256(&crypto::utils::sha256(b"test1"));
             let rng = ChaCha20Rng::from_seed(seed_hash.try_into().expect("should be 32 bytes; qed"));
-            let mut auction = TlockAuction::new(slot_ids.clone(), threshold);
+            // setup auction
+            let mut auction = TlockAuction::new(b"test1".to_vec(), 1u32, 1u8, slot_ids.clone(), threshold);
             let res = add_bid(slot_ids.clone(), threshold, ibe_params.0.clone(), ibe_params.1, rng);
-            auction.propose(1, res.0.clone(), res.1.clone(), res.2.clone());
+            auction.propose(res.0.clone(), res.1.clone(), res.2.clone());
             // prepare IBE slot secrets
             // in practice this would be fetched from block headers
             let ibe_slot_secrets: Vec<Vec<u8>> = ibe_extract(ibe_params.2, slot_ids).into_iter()
