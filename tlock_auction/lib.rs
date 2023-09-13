@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 use ink_env::Environment;
+use ink::prelude::vec::Vec;
+use scale::{Encode, Decode};
 
 type AccountId = <ink_env::DefaultEnvironment as Environment>::AccountId;
 
@@ -12,6 +14,10 @@ pub trait ETF {
     /// check if a block has been authored in the slot
     #[ink(extension = 1101, handle_status = false)]
     fn check_slot(slot_id: u32) -> bool;
+
+    /// check if the tx bytes consist of a valid transaction
+    #[ink(extension = 1102, handle_status = true)]
+    fn check_tx(raw_tx_bytes: Vec<u8>) -> Result<Vec<u8>, EtfError>;
 
     /// transfer an owned asset in the assets pallet
     #[ink(extension = 2101)]
@@ -26,7 +32,11 @@ pub trait ETF {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum EtfErrorCode {
+    /// the chain ext could not check for a block in the specified slot
     FailCheckSlot,
+    /// the chain ext could not verify the transaction
+    FailCheckTx,
+    /// the chain ext failed to transfer the asset (are you the owner?)
     FailTransferAsset,
 }
 
@@ -54,6 +64,7 @@ impl ink_env::chain_extension::FromStatusCode for EtfErrorCode {
         match status_code {
             0 => Ok(()),
             1101 => Err(Self::FailCheckSlot),
+            1102 => Err(Self::FailCheckTx),
             2101 => Err(Self::FailTransferAsset),
             _ => panic!("encountered unknown status code"),
         }
@@ -81,7 +92,7 @@ impl Environment for CustomEnvironment {
 mod tlock_auction {
     // use super::EtfErr;
     use ink::storage::Mapping;
-    use ink::prelude::vec::Vec;
+    use crate::Vec;
 
     use crypto::{
         client::client::{DefaultEtfClient, EtfClient},
@@ -119,6 +130,7 @@ mod tlock_auction {
         AuctionInProgress,
         /// the auction requires a minimum deposit
         DepositTooLow,
+        InvalidCurrencyAmountTransferred,
     }
 
     /// Defines the storage of your contract.
@@ -202,6 +214,43 @@ mod tlock_auction {
             )
         }
 
+        /// get the version of the contract
+        #[ink(message)]
+        pub fn get_version(&self) -> Vec<u8> {
+            b"0.0.1-dev".to_vec()
+        }
+
+        /// get the slot schedule (to encrypt messages to)
+        #[ink(message)]
+        pub fn get_slots(&self) -> Vec<u32> {
+            self.slot_ids.clone()
+        }
+
+        /// get the threshold (for creating keys)
+        #[ink(message)]
+        pub fn get_threshold(&self) -> u8 {
+            self.threshold.clone()
+        }
+
+        /// get the minimum deposit required to participate
+        #[ink(message)]
+        pub fn get_deposit(&self) -> Balance {
+            self.deposit.clone()
+        }
+
+        /// get the revealed bids (empty until post-auction completion)
+        #[ink(message)]
+        pub fn get_revealed_bids(&self) -> Vec<Vec<u8>> {
+            self.revealed_bids.clone()
+        }
+
+        /// check if the auction item is verified to have been transferred to the contract
+        /// auction winners will receive nothing if the auction is unverified when they call BID
+        #[ink(message)]
+        pub fn is_verified(&self) -> bool {
+            self.auction_item.verified
+        }
+
         /// verifies the asset ownership and amount
         /// and then transfers the asset ownership to the contract
         #[ink(message)]
@@ -209,23 +258,16 @@ mod tlock_auction {
             let owner = self.env().caller();
             let contract = self.env().account_id();
 
-            match self.env().extension().transfer_asset(
-                owner, contract, 
-                self.auction_item.asset_id, 
-                self.auction_item.amount,
-            ) {
-                Ok(_) => {
+            self.env()
+                .extension()
+                .transfer_asset(
+                    owner, contract, 
+                    self.auction_item.asset_id, 
+                    self.auction_item.amount
+                ).map(|_| {
                     self.auction_item.verified = true;
-                    Self::env().emit_event(AuctionItemVerified{});
-                    Ok(())
-                },
-                Err(_) => Err(Error::AssetTransferFailed),
-            }
-        }
-
-        #[ink(message)]
-        pub fn get_version(&self) -> Vec<u8> {
-            b"0.0.1-dev".to_vec()
+                    Self::env().emit_event(AuctionItemVerified {});
+                }).map_err(|_| Error::AssetTransferFailed)
         }
 
         // add a proposal to an active auction
@@ -256,7 +298,7 @@ mod tlock_auction {
             Ok(())
         }
 
-        #[ink(message)]
+        #[ink(message, payable)]
         pub fn bid(&mut self, amount: Balance) -> Result<(), Error> {
             let caller = self.env().caller();
             let is_past_deadline = self.env()
@@ -264,8 +306,14 @@ mod tlock_auction {
                 .check_slot(self.slot_ids[self.slot_ids.len() - 1]);
             if is_past_deadline {
                 if self.winners.contains(&caller) {
+                    // 1. check if transferred_value == amount
+                    let transferred_value = self.env().transferred_value();
+                    if transferred_value != amount {
+                        return Err(Error::InvalidCurrencyAmountTransferred);
+                    }
                     // payout amount to owner
                     // self.env().transfer(self.env().account_id(), amount);
+                    // Q: how do we do a balance transfer? another chain ext?
                     // owner transfers nft to winner
                     Self::env().emit_event(BidComplete{
                         winner: true,
@@ -274,7 +322,7 @@ mod tlock_auction {
                     // you lost, return deposit
                     let deposit = self.proposals.get(&caller).unwrap().0;
                     let _ = self.env().transfer(caller, deposit);
-                    Self::env().emit_event(BidComplete{
+                    Self::env().emit_event(BidComplete {
                         winner: false,
                     });
                 }
@@ -289,25 +337,35 @@ mod tlock_auction {
             let is_past_deadline = self.env()
                 .extension()
                 .check_slot(self.slot_ids[self.slot_ids.len() - 1]);
-            if is_past_deadline {
+            if is_past_deadline { 
+                let mut highest_bid: u128 = 0;
+                let mut winning_bid_index: usize = 0;
                 // 1. ensure past deadline
-                self.participants.iter().for_each(|p| {
-                    self.proposals.get(&p).iter().for_each(|proposal| {
-                        let signed_tx = DefaultEtfClient::<BfIbe>::decrypt(
-                            pp.clone(), proposal.1.clone(), 
-                            proposal.2.clone(), proposal.3.clone(), 
-                            secrets.clone(),
-                        ).unwrap();
-                        // need to decode the tx and get the amount and use it to identify the winner
-                        // 1. decode (how?!) + verify
-                        // 2. check if winner
-                        self.revealed_bids.push(signed_tx);
-                    });
-                });
+                for (idx, p) in self.participants.iter().enumerate() {
+                    // TODO: handle errors - what if a proposal doesn't exist somehow
+                    let proposal = self.proposals.get(&p).unwrap();
+                    // recover signed tx
+                    let signed_tx = DefaultEtfClient::<BfIbe>::decrypt(
+                        pp.clone(), proposal.1.clone(), 
+                        proposal.2.clone(), proposal.3.clone(), 
+                        secrets.clone(),
+                    ).unwrap();
+                    let res: Vec<u8> = 
+                        self.env().extension()
+                            .check_tx(signed_tx.clone()).unwrap();
+                    
+                    self.revealed_bids.push(res);
+                    winning_bid_index = idx;
+                };
+                // final winner determination
+                let winner = self.participants[winning_bid_index];
+                // self.winner = winner;
+
                 return Ok(());
             }
             Err(Error::AuctionInProgress)
         }
+
     }
 
     #[cfg(test)]
@@ -434,9 +492,9 @@ mod tlock_auction {
 
             let revealed_bids = post_auction.revealed_bids;
             assert_eq!(revealed_bids.len(), 1);
-            assert_eq!(revealed_bids[0], b"{I want to bid X tokens for your NFT}".to_vec());
+            let mock_bid_tx = b"0x5d028400d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d019addf3bdb43dc19e476a811397f308f050d097f7fd32acd55c0aa6aa7e1b6948d704e964afcfa72bb8da900869f812d6120faf4c6000c5b0cd42355602238484750100000806008eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a4804000001c294bfd61066494848".to_vec();
+            assert_eq!(revealed_bids[0], mock_bid_tx);
         }
-
         
         #[ink::test]
         fn complete_auction_error_before_deadline() {
@@ -585,9 +643,9 @@ mod tlock_auction {
             p: Vec<u8>, q: Vec<u8>, 
             rng: ChaCha20Rng
         ) -> (Vec<u8>, Vec<u8>, Vec<Vec<u8>>) {
-            let mock_bid_tx = b"{I want to bid X tokens for your NFT}".to_vec();
+            let mock_bid_tx = b"0x5d028400d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d019addf3bdb43dc19e476a811397f308f050d097f7fd32acd55c0aa6aa7e1b6948d704e964afcfa72bb8da900869f812d6120faf4c6000c5b0cd42355602238484750100000806008eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a4804000001c294bfd61066494848".to_vec();
 
-            // setup slot ids
+            // derive slot ids
             let slot_ids: Vec<Vec<u8>> = slots.iter().map(|s| {
                 s.to_string().into_bytes().to_vec()
             }).collect();
