@@ -1,11 +1,17 @@
-# Timelock Sealed-Bid Auction
+# Timelock Auction
 
 An example of using timelock encryption within a smart contract.
 
-## How it Works
+## Setup
 
-The tlock auction contract lets assets, created via the assets pallet, be auctioned for the chain's native token.
+### Build
 
-## TODOs
+```
+cargo +nightly contract build
+```
 
-- [ ] testing: how to return result from mock chain ext?
+### Testing
+
+```
+cargo test
+```
