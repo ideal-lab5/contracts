@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 use ink_env::Environment;
-use ark_std::vec::Vec;
-// use ink::prelude::vec::Vec;
+// use ark_std::vec::Vec;
+use ink::prelude::vec::Vec;
 
 type AccountId = <ink_env::DefaultEnvironment as Environment>::AccountId;
 
@@ -92,6 +92,7 @@ mod tlock_auction {
     // use super::EtfErr;
     use ink::storage::Mapping;
     use ark_serialize::CanonicalDeserialize;
+    use scale::Decode;
     use crate::Vec;
 
     use crypto::{
@@ -330,6 +331,7 @@ mod tlock_auction {
         /// * `ciphertext`: The aes ciphertext
         /// * `nonce`: The aes nonce
         /// * `capsule`: The etf capsule
+        /// * `commitment`: A commitment to the bid (sha256)
         ///
         #[ink(message, payable)]
         pub fn propose(
@@ -337,10 +339,11 @@ mod tlock_auction {
             ciphertext: Vec<u8>, 
             nonce: Vec<u8>, 
             capsule: Vec<u8>, // single IbeCiphertext, capsule = Vec<IbeCiphertext>
+            commitment: Vec<u8>,
         ) -> Result<(), Error> {
             let caller = self.env().caller();
 
-
+            // let v = Vec::decode(&mut capsule[..]).unwrap();
             // can validate input
             match crypto::ibe::fullident::IbeCiphertext
                     ::deserialize_compressed(&capsule[..]) {
@@ -406,15 +409,12 @@ mod tlock_auction {
                     //         .iter().map(|cap| { cap.to_vec() })
                     //         .collect();
 
-                    assert!(proposal.nonce.len().eq(&12));
-                    assert!(cap_bytes.len().eq(&1));
-                    assert!(cap_bytes[0].len().eq(&176));
-
-                    let ct = 
-                        crypto::ibe::fullident::IbeCiphertext
-                            ::deserialize_compressed(&proposal.capsule.to_vec()[..]).unwrap();
+                    // let ct = 
+                    //     crypto::ibe::fullident::IbeCiphertext
+                    //         ::deserialize_compressed(&proposal.capsule.to_vec()[..]).unwrap();
 
                     // recover signed tx
+                    // requires too much computation to be done in the contract
                     match DefaultEtfClient::<BfIbe>::decrypt(
                         pp.clone(), 
                         proposal.ciphertext.clone(), 
@@ -433,9 +433,9 @@ mod tlock_auction {
                             // }
                         },
                         Err(e) => {
-                            if e.eq(&crypto::client::client::ClientError::DeserializationError) {
-                                self.err = b"deserialization error".to_vec();
-                            }
+                            // if e.eq(&crypto::client::client::ClientError::DeserializationError) {
+                            //     self.err = b"deserialization error".to_vec();
+                            // }
                             if e.eq(&crypto::client::client::ClientError::DeserializationErrorG2) {
                                 self.err = b"deserialization error G2".to_vec();
                             } 
@@ -457,7 +457,7 @@ mod tlock_auction {
                     }
                 }
             }
-            let winner = self.participants[winning_bid_index];
+            // let winner = self.participants[winning_bid_index];
 
             Ok(())
           }
