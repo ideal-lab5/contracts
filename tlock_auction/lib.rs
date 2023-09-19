@@ -359,13 +359,13 @@ mod tlock_auction {
             if transferred_value < self.deposit {
                 return Err(Error::DepositTooLow);
             }
-            // check deadline
-            let is_past_deadline = self.env()
-                .extension()
-                .check_slot(self.deadline);
-            if is_past_deadline.eq(&[1u8]) {
-                return Err(Error::AuctionAlreadyComplete);
-            }
+            // // check deadline
+            // let is_past_deadline = self.env()
+            //     .extension()
+            //     .check_slot(self.deadline);
+            // if is_past_deadline.eq(&[1u8]) {
+            //     return Err(Error::AuctionAlreadyComplete);
+            // }
 
             if !self.participants.contains(&caller.clone()) {
                 self.participants.push(caller.clone());
@@ -405,7 +405,7 @@ mod tlock_auction {
                     if let Some(proposal) = self.proposals.get(&p) {
                         let expected_hash = proposal.commitment.clone();
                         let mut hasher = sha2::Sha256::new();
-                        hasher.update(b.to_string().as_bytes());
+                        hasher.update(b.to_le_bytes());
                         let actual_hash = hasher.finalize().to_vec();
                         if expected_hash.eq(&actual_hash) {
                             self.revealed_bids.insert(p, &b);

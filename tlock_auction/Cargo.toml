@@ -9,10 +9,7 @@ ink = { version = "4.2.0", default-features = false }
 ink_env = { version = "4", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
-#crypto = { package = "crypto", path = "../../etf-sdk/crypto" }
-sha2 = "0.10.7"
-ark-serialize = { version = "0.4.0", default-features = false }
-ark-std = { version = "0.4.0", default-features = false }
+sha2 = { version = "0.10.2", default-features = false }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
@@ -29,8 +26,7 @@ std = [
     "ink_env/std",
     "scale/std",
     "scale-info/std",
-    "ark-serialize/std",
-    "ark-std/std",
+    "sha2/std",
 ]
 ink-as-dependency = []
 e2e-tests = []
