@@ -456,6 +456,10 @@ mod tlock_auction {
                 if !self.auction_item.verified {
                     return Err(Error::AuctionUnverified);
                 }
+                // winner to contract -> you paid
+                // asset transfer
+                // conract to owner 
+
                 // try to transfer the asset to the winner
                 let _ = self.env()
                     .extension()
@@ -487,7 +491,7 @@ mod tlock_auction {
     mod tests {
         use super::*;
         use crypto::{
-            testing::{test_ibe_params, ibe_extract},
+            testing::{test_ibe_params},
             client::client::{DefaultEtfClient, EtfClient},
             ibe::fullident::BfIbe,
         };
