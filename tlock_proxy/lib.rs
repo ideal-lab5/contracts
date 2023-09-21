@@ -4,7 +4,8 @@
 mod tlock_proxy {
     use ink::prelude::string::String;
     use ink::prelude::vec::Vec;
-    /// A custom type that we can use in our contract storage
+
+    /// A custom type for storing auction's details
     #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
     #[cfg_attr(
         feature = "std",
@@ -14,10 +15,20 @@ mod tlock_proxy {
         name: Vec<u8>,
         contract_id: Vec<u8>,
         owner: AccountId,
-        bidders: Vec<AccountId>,
         threshold: u8,
         deadline: u64,
         status: u8,
+    }
+
+    /// A custom type for representing the relationship between a bidder and an auction
+    #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
+    #[cfg_attr(
+        feature = "std",
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+    )]
+    pub struct Bid {
+        contract_id: Vec<u8>,
+        bidder: AccountId,
     }
 
     #[derive(Clone, PartialEq, Debug, scale::Decode, scale::Encode)]
@@ -40,6 +51,8 @@ mod tlock_proxy {
         InvalidCurrencyAmountTransferred,
         /// the auction is not verified, the asset cannot be transferred
         AuctionUnverified,
+        /// there is no auction identified by the provided id
+        AuctionDoesNotExist
     }
 
     /// The ERC-20 result type.
@@ -54,6 +67,8 @@ mod tlock_proxy {
         owner: AccountId,
         /// Stores references to all auctions
         auctions: Vec<AuctionDetails>,
+        /// Stores references to all auctions
+        bids: Vec<Bid>,
     }
 
     impl TlockProxy {
@@ -63,6 +78,7 @@ mod tlock_proxy {
             Self {
                 owner,
                 auctions: Vec::new(),
+                bids: Vec::new()
             }
         }
 
@@ -80,10 +96,9 @@ mod tlock_proxy {
             let caller = self.env().caller();
             // TODO: deploy a new tlock_auction contract
             let auction = AuctionDetails {
-                name,
-                contract_id: Vec::new(),
+                name: name.clone(),
+                contract_id: name.clone(),
                 owner: caller,
-                bidders: Vec::new(),
                 threshold,
                 deadline,
                 status: 0,
@@ -103,7 +118,15 @@ mod tlock_proxy {
             capsule: Vec<u8>, // single IbeCiphertext, capsule = Vec<IbeCiphertext>
             commitment: Vec<u8>,
         ) -> Result<()> {
-            let _caller = self.env().caller();
+            let caller = self.env().caller();
+            let auction = self.auctions
+                    .iter()
+                    .find(|x| x.contract_id == contract_id).ok_or(Error::AuctionDoesNotExist)?;
+            //TODO check that has not previous bids and calls the auction contract
+            self.bids.push(Bid {
+                contract_id: auction.contract_id.clone(),
+                bidder: caller
+            });
             //TODO logic to call the contract and submmit a bid
             Ok(())
         }
@@ -139,7 +162,7 @@ mod tlock_proxy {
                 &self
                     .auctions
                     .iter()
-                    .filter(|x| x.bidders.iter().find(|y| y == &&bidder).is_some())
+                    .filter(|x| self.bids.iter().find(|y| y.bidder == bidder && y.contract_id == x.contract_id).is_some())
                     .cloned()
                     .collect::<Vec<AuctionDetails>>(),
                 &mut output,
