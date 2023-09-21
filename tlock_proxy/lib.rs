@@ -20,6 +20,31 @@ mod tlock_proxy {
         status: u8,
     }
 
+    #[derive(Clone, PartialEq, Debug, scale::Decode, scale::Encode)]
+    #[cfg_attr(
+        feature = "std",
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+    )]
+    pub enum Error {
+        /// this function is callable only by the auction owner
+        NotAuctionOwner,
+        /// the asset could not be transferred (are you the owner?)
+        AssetTransferFailed,
+        /// the auction has already finished
+        AuctionAlreadyComplete,
+        /// the auction deadline has not been reached
+        AuctionInProgress,
+        /// the auction requires a minimum deposit
+        DepositTooLow,
+        /// the current amount transferred was incorrect
+        InvalidCurrencyAmountTransferred,
+        /// the auction is not verified, the asset cannot be transferred
+        AuctionUnverified,
+    }
+
+    /// The ERC-20 result type.
+    pub type Result<T> = core::result::Result<T, Error>;
+
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
@@ -41,9 +66,7 @@ mod tlock_proxy {
             }
         }
 
-        /// A message that can be called on instantiated contracts.
-        /// This one flips the value of the stored `bool` from `true`
-        /// to `false` and vice versa.
+        /// deploys a new auction contract if rules are satisfied.
         #[ink(message)]
         pub fn new_auction(
             &mut self,
@@ -53,7 +76,7 @@ mod tlock_proxy {
             threshold: u8,
             deadline: u64,
             deposit: Balance,
-        ) {
+        ) -> Result<()> {
             let caller = self.env().caller();
             // TODO: deploy a new tlock_auction contract
             let auction = AuctionDetails {
@@ -66,6 +89,23 @@ mod tlock_proxy {
                 status: 0,
             };
             self.auctions.push(auction);
+            Ok(())
+        }
+
+        /// sends a bid to a specific auction (contract_id) if the status and dealine are valid 
+        /// and all conditions are satisfied
+        #[ink(message, payable)]
+        pub fn bid(
+            &mut self,
+            contract_id: Vec<u8>,
+            ciphertext: Vec<u8>,
+            nonce: Vec<u8>,
+            capsule: Vec<u8>, // single IbeCiphertext, capsule = Vec<IbeCiphertext>
+            commitment: Vec<u8>,
+        ) -> Result<()> {
+            let _caller = self.env().caller();
+            //TODO logic to call the contract and submmit a bid
+            Ok(())
         }
 
         /// Simply returns current auctions.
@@ -91,6 +131,21 @@ mod tlock_proxy {
             );
             output
         }
+
+        #[ink(message)]
+        pub fn get_auctions_by_bidder(&self, bidder: AccountId) -> Vec<u8> {
+            let mut output: Vec<u8> = Vec::new();
+            scale::Encode::encode_to(
+                &self
+                    .auctions
+                    .iter()
+                    .filter(|x| x.bidders.iter().find(|y| y == &&bidder).is_some())
+                    .cloned()
+                    .collect::<Vec<AuctionDetails>>(),
+                &mut output,
+            );
+            output
+        }
     }
 
     /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
@@ -104,8 +159,8 @@ mod tlock_proxy {
         /// We test if the default constructor does its job.
         #[ink::test]
         fn default_works() {
-            let owner = AccountId::from([0x01; 32]);
-            let tlock_proxy = TlockProxy::default(owner);
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            let tlock_proxy = TlockProxy::default(accounts.bob);
             let result = tlock_proxy.get_auctions();
             let auctions: Vec<AuctionDetails> = scale::Decode::decode(&mut &result[..]).unwrap();
             assert_eq!(auctions.is_empty(), true);
@@ -114,14 +169,14 @@ mod tlock_proxy {
         /// We test if the default constructor does its job.
         #[ink::test]
         fn get_by_owner_works() {
-            let auctionner1 = AccountId::from([0x01; 32]);
-            let auctionner2 = AccountId::from([0x02; 32]);
-            let mut tlock_proxy = TlockProxy::default(auctionner1);
-            tlock_proxy.new_auction(b"NFT XXX".to_vec(), 0u32, 0u128, 10u8, 20u64, 1);
-            let result = tlock_proxy.get_auctions_by_owner(auctionner1);
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
+            let mut tlock_proxy = TlockProxy::default(accounts.bob);
+            assert_eq!(tlock_proxy.new_auction(b"NFT XXX".to_vec(), 0u32, 0u128, 10u8, 20u64, 1), Ok(()));
+            let result = tlock_proxy.get_auctions_by_owner(accounts.bob);
             let auctions: Vec<AuctionDetails> = scale::Decode::decode(&mut &result[..]).unwrap();
             assert_eq!(auctions.len() > 0, true);
-            let result = tlock_proxy.get_auctions_by_owner(auctionner2);
+            let result = tlock_proxy.get_auctions_by_owner(accounts.alice);
             let auctions: Vec<AuctionDetails> = scale::Decode::decode(&mut &result[..]).unwrap();
             assert_eq!(auctions.is_empty(), true);
         }
