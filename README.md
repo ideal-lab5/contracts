@@ -18,7 +18,7 @@ If your package manager doesn't have binaryen versions >= 99, then:
 
 ``` bash
 # unzip the tarball
-sudo tar xzvf binaryen-version_100-x86_64-linux.tar.gz
+sudo tar xzvf binaryezn-version_100-x86_64-linux.tar.gz
 # update permissions
 chmod +x binaryen-version_100
 # move to /opt

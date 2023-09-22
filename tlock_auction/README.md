@@ -9,11 +9,23 @@ To use the contract, it must be deployed to the ETF network. In addition, it sho
 ### Build
 
 ```
-cargo +nightly contract build
+cargo +nightly contract build q
 ```
 
 ### Testing
 
-```
+#### Unit Tests
+Unit tests can be run with
+
+``` rust
 cargo test
+```
+
+#### E2E tests
+
+End-to-end tests reequires that you run a node locally and provide it's absolute path (e.g. /home/.../substrate/target/release/node-template). 
+
+``` rust
+export CONTRACTS_NODE="YOUR_CONTRACTS_NODE_PATH"
+cargo +nightly test --features e2e-tests
 ```
