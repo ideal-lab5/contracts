@@ -1,4 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
+pub use self::tlock_auction::{
+    TlockAuction,
+    TlockAuctionRef,
+};
 
 use ink_env::Environment;
 use ink::prelude::vec::Vec;
@@ -87,6 +91,7 @@ mod tlock_auction {
     use ink::storage::Mapping;
     use scale::alloc::string::ToString;
     use sha3::Digest;
+    use erc721::Erc721Ref;
     use crate::Vec;
       
     /// represent the asset being auctioned

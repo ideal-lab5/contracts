@@ -11,6 +11,9 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 sha3 = { version = "0.10.8", default-features = false }
 
+# ERC721
+erc721 = { path = "../erc721", default-features = false, features = ["ink-as-dependency"] }
+
 [dev-dependencies]
 ink_e2e = "4.2.0"
 rand_chacha = { version = "0.3.1", default-features = false }
@@ -27,6 +30,7 @@ std = [
     "scale/std",
     "scale-info/std",
     "sha3/std",
+    "erc721/std",
 ]
 ink-as-dependency = []
 e2e-tests = []
