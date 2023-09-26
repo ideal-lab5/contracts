@@ -230,9 +230,11 @@ mod tlock_proxy {
         fn get_by_owner_works() {
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            let mut tlock_proxy = TlockProxy::default(accounts.bob, Hash::from([0x01; 32]));
+            let auction_contract_code_hash = Hash::from([0x01; 32]);
+            let nft = AccountId::from([0x01; 32]);
+            let mut tlock_proxy = TlockProxy::default(accounts.bob, auction_contract_code_hash);
             assert_eq!(
-                tlock_proxy.new_auction(b"NFT XXX".to_vec(), b"".to_vec(), 0u32, 0u128, 20u64, 1),
+                tlock_proxy.new_auction(b"NFT XXX".to_vec(), nft, 0u32, 20u64, 1),
                 Ok(())
             );
             let result = tlock_proxy.get_auctions_by_owner(accounts.bob);
