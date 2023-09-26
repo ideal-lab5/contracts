@@ -12,6 +12,7 @@ sha3 = { version = "0.10.8", default-features = false }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
+ink_env = { version = "4", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 crypto = { git = "https://github.com/ideal-lab5/etf-sdk", branch = "m3", default-features = false }
 
