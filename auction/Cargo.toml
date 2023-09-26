@@ -1,18 +1,14 @@
 [package]
-name = "tlock_auction"
+name = "auction"
 version = "0.1.0"
 authors = ["Tony Riemer <driemworks@idealabs.network>"]
 edition = "2021"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }
-ink_env = { version = "4", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 sha3 = { version = "0.10.8", default-features = false }
-
-# ERC721
-erc721 = { path = "../erc721", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
@@ -26,11 +22,9 @@ path = "lib.rs"
 default = ["std"]
 std = [
     "ink/std",
-    "ink_env/std",
     "scale/std",
     "scale-info/std",
     "sha3/std",
-    "erc721/std",
 ]
 ink-as-dependency = []
 e2e-tests = []
