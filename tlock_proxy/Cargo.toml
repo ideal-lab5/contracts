@@ -1,14 +1,14 @@
 [package]
 name = "tlock_proxy"
 version = "0.1.0"
-authors = ["[your_name] <[your_email]>"]
+authors = ["[Carlos Montoya] <carlos@idealabs.network>"]
 edition = "2021"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }
-
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
+tlock_auction = { path = "../tlock_auction", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
@@ -22,6 +22,7 @@ std = [
     "ink/std",
     "scale/std",
     "scale-info/std",
+    "tlock_auction/std"
 ]
 ink-as-dependency = []
 e2e-tests = []

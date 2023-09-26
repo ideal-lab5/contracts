@@ -2,8 +2,9 @@
 
 #[ink::contract]
 mod tlock_proxy {
-    use ink::prelude::string::String;
     use ink::prelude::vec::Vec;
+    use ink::ToAccountId;
+    use tlock_auction::TlockAuctionRef;
 
     /// A custom type for storing auction's details
     #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
@@ -13,9 +14,8 @@ mod tlock_proxy {
     )]
     pub struct AuctionDetails {
         name: Vec<u8>,
-        contract_id: Vec<u8>,
+        contract_id: AccountId,
         owner: AccountId,
-        threshold: u8,
         deadline: u64,
         status: u8,
     }
@@ -27,7 +27,7 @@ mod tlock_proxy {
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub struct Bid {
-        contract_id: Vec<u8>,
+        contract_id: AccountId,
         bidder: AccountId,
     }
 
@@ -52,7 +52,7 @@ mod tlock_proxy {
         /// the auction is not verified, the asset cannot be transferred
         AuctionUnverified,
         /// there is no auction identified by the provided id
-        AuctionDoesNotExist
+        AuctionDoesNotExist,
     }
 
     /// The ERC-20 result type.
@@ -69,16 +69,19 @@ mod tlock_proxy {
         auctions: Vec<AuctionDetails>,
         /// Stores references to all auctions
         bids: Vec<Bid>,
+        /// The TlockAuction contract code hash
+        auction_contract_code_hash: Hash,
     }
 
     impl TlockProxy {
         /// Constructor
         #[ink(constructor)]
-        pub fn default(owner: AccountId) -> Self {
+        pub fn default(owner: AccountId, auction_contract_code_hash: Hash) -> Self {
             Self {
                 owner,
                 auctions: Vec::new(),
-                bids: Vec::new()
+                bids: Vec::new(),
+                auction_contract_code_hash,
             }
         }
 
@@ -87,19 +90,23 @@ mod tlock_proxy {
         pub fn new_auction(
             &mut self,
             name: Vec<u8>,
+            erc721: AccountId,
             asset_id: u32,
-            amount: u128,
-            threshold: u8,
             deadline: u64,
             deposit: Balance,
         ) -> Result<()> {
             let caller = self.env().caller();
-            // TODO: deploy a new tlock_auction contract
+            let auction_contract =
+                TlockAuctionRef::new(caller, name.clone(), erc721, asset_id, deadline, deposit)
+                    .endowment(0)
+                    .code_hash(self.auction_contract_code_hash)
+                    .salt_bytes(name.as_slice())
+                    .instantiate();
+            // TODO: perform some basic validations
             let auction = AuctionDetails {
                 name: name.clone(),
-                contract_id: name.clone(),
+                contract_id: auction_contract.to_account_id(),
                 owner: caller,
-                threshold,
                 deadline,
                 status: 0,
             };
@@ -107,28 +114,52 @@ mod tlock_proxy {
             Ok(())
         }
 
-        /// sends a bid to a specific auction (contract_id) if the status and dealine are valid 
+        /// sends a bid to a specific auction (contract_id) if the status and dealine are valid
         /// and all conditions are satisfied
         #[ink(message, payable)]
         pub fn bid(
             &mut self,
-            contract_id: Vec<u8>,
+            contract_id: AccountId,
             ciphertext: Vec<u8>,
             nonce: Vec<u8>,
             capsule: Vec<u8>, // single IbeCiphertext, capsule = Vec<IbeCiphertext>
             commitment: Vec<u8>,
         ) -> Result<()> {
             let caller = self.env().caller();
-            let auction = self.auctions
-                    .iter()
-                    .find(|x| x.contract_id == contract_id).ok_or(Error::AuctionDoesNotExist)?;
+            let auction = self
+                .auctions
+                .iter()
+                .find(|x| x.contract_id == contract_id)
+                .ok_or(Error::AuctionDoesNotExist)?;
             //TODO check that has not previous bids and calls the auction contract
             self.bids.push(Bid {
                 contract_id: auction.contract_id.clone(),
-                bidder: caller
+                bidder: caller,
             });
             //TODO logic to call the contract and submmit a bid
+            let _auction_contract: TlockAuctionRef =
+                ink::env::call::FromAccountId::from_account_id(contract_id);
             Ok(())
+        }
+
+        /// complete the auction
+        #[ink(message)]
+        pub fn complete(
+            &mut self,
+            contract_id: AccountId,
+            revealed_bids: Vec<(AccountId, u128)>,
+        ) -> Result<()> {
+            let _auction_contract: TlockAuctionRef =
+                ink::env::call::FromAccountId::from_account_id(contract_id);
+            unimplemented!("TODO");
+        }
+
+        /// claim a prize or reclaim deposit, post-auction
+        #[ink(message, payable)]
+        pub fn claim(&mut self, contract_id: AccountId) -> Result<()> {
+            let _auction_contract: TlockAuctionRef =
+                ink::env::call::FromAccountId::from_account_id(contract_id);
+            unimplemented!("TODO");
         }
 
         /// Simply returns current auctions.
@@ -162,7 +193,12 @@ mod tlock_proxy {
                 &self
                     .auctions
                     .iter()
-                    .filter(|x| self.bids.iter().find(|y| y.bidder == bidder && y.contract_id == x.contract_id).is_some())
+                    .filter(|x| {
+                        self.bids
+                            .iter()
+                            .find(|y| y.bidder == bidder && y.contract_id == x.contract_id)
+                            .is_some()
+                    })
                     .cloned()
                     .collect::<Vec<AuctionDetails>>(),
                 &mut output,
@@ -183,7 +219,7 @@ mod tlock_proxy {
         #[ink::test]
         fn default_works() {
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
-            let tlock_proxy = TlockProxy::default(accounts.bob);
+            let tlock_proxy = TlockProxy::default(accounts.bob, Hash::from([0x01; 32]));
             let result = tlock_proxy.get_auctions();
             let auctions: Vec<AuctionDetails> = scale::Decode::decode(&mut &result[..]).unwrap();
             assert_eq!(auctions.is_empty(), true);
@@ -194,8 +230,11 @@ mod tlock_proxy {
         fn get_by_owner_works() {
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            let mut tlock_proxy = TlockProxy::default(accounts.bob);
-            assert_eq!(tlock_proxy.new_auction(b"NFT XXX".to_vec(), 0u32, 0u128, 10u8, 20u64, 1), Ok(()));
+            let mut tlock_proxy = TlockProxy::default(accounts.bob, Hash::from([0x01; 32]));
+            assert_eq!(
+                tlock_proxy.new_auction(b"NFT XXX".to_vec(), b"".to_vec(), 0u32, 0u128, 20u64, 1),
+                Ok(())
+            );
             let result = tlock_proxy.get_auctions_by_owner(accounts.bob);
             let auctions: Vec<AuctionDetails> = scale::Decode::decode(&mut &result[..]).unwrap();
             assert_eq!(auctions.len() > 0, true);
