@@ -8,7 +8,7 @@ mod tlock_proxy {
     use ink::prelude::vec::Vec;
     use ink::ToAccountId;
     use erc721::Erc721Ref;
-    use auction::SPSBAuctionRef;
+    use sbsp_auction::SPSBAuctionRef;
 
     /// A custom type for storing auction's details
     #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
