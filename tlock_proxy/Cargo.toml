@@ -6,9 +6,12 @@ edition = "2021"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }
+ink_env = { version = "4", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
-tlock_auction = { path = "../tlock_auction", default-features = false, features = ["ink-as-dependency"] }
+# local dependencies
+sbsp_auction = { path = "../sbsp_auction", default-features = false, features = ["ink-as-dependency"] }
+erc721 = { path = "../erc721", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
@@ -20,9 +23,11 @@ path = "lib.rs"
 default = ["std"]
 std = [
     "ink/std",
+    "ink_env/std",
     "scale/std",
     "scale-info/std",
-    "tlock_auction/std"
+    "sbsp_auction/std",
+    "erc721/std",
 ]
 ink-as-dependency = []
 e2e-tests = []
