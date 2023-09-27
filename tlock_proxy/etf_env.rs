@@ -7,7 +7,7 @@ pub trait ETF {
     type ErrorCode = EtfErrorCode;
     /// check if a block has been authored in the slot
     #[ink(extension = 1101, handle_status = false)]
-    fn check_slot(slot_id: u64) -> Vec<u8>;
+    fn check_slot(slot_id: u64) -> bool;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
