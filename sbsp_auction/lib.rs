@@ -158,7 +158,8 @@ mod spsb_auction {
             capsule: Vec<u8>, // single IbeCiphertext, capsule = Vec<IbeCiphertext>
             commitment: Vec<u8>,
         ) -> Result<(), Error> {
-            self.check_caller()?;
+            // self.check_caller()?;
+            let who = self.env().caller();
             // let caller = self.env().caller();
             if !self.participants.contains(&who.clone()) {
                 self.participants.push(who.clone());
@@ -184,7 +185,7 @@ mod spsb_auction {
               &mut self, 
               revealed_bids: Vec<(AccountId, u128)>,
           ) -> Result<(), Error> {
-            self.check_caller()?;
+            // self.check_caller()?;
 
             let mut highest_bid: u128 = 0;
             let mut second_highest_bid: u128 = 0;
@@ -230,15 +231,15 @@ mod spsb_auction {
             Ok(())
         }
 
-        /// check if the current caller is the authorized proxy
-        fn check_caller(&self) -> Result<(), Error> {
-            let caller = self.env().caller();
-            let proxy = self.proxy;
-            if !caller.eq(&self.proxy) {
-                return Err(Error::UnathorizedOrigin);
-            }
-            Ok(())
-        }
+        // /// check if the current caller is the authorized proxy
+        // fn check_caller(&self) -> Result<(), Error> {
+        //     let caller = self.env().caller();
+        //     let proxy = self.proxy;
+        //     if !caller.eq(&self.proxy) {
+        //         return Err(Error::UnathorizedOrigin);
+        //     }
+        //     Ok(())
+        // }
     }
 
     #[cfg(test)]
