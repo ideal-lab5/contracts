@@ -1,5 +1,4 @@
 use ink_env::Environment;
-use ink::prelude::vec::Vec;
 
 /// the etf chain extension
 #[ink::chain_extension]
