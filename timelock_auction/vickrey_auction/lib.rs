@@ -1,8 +1,26 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
-pub use self::spsb_auction::{
-    SPSBAuction,
-    SPSBAuctionRef,
+use ink::prelude::vec::Vec;
+pub use self::vickrey_auction::{
+    VickreyAuction,
+    VickreyAuctionRef,
 };
+
+/// a proposal represents a timelocked bid
+#[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
+#[cfg_attr(
+    feature = "std",
+    derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+)]
+pub struct Proposal {
+    /// the ciphertext
+    ciphertext: Vec<u8>,
+    /// a 12-byte nonce
+    nonce: Vec<u8>,
+    /// the ibe ciphertext
+    capsule: Vec<u8>, // a single ibe ciphertext is expected
+    /// a sha256 hash of the bid amount
+    commitment: Vec<u8>,
+}
 
 #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
 #[cfg_attr(
@@ -10,39 +28,20 @@ pub use self::spsb_auction::{
     derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
 )]
 pub enum Error {
-    /// the origin is not authorized to call this function
-    UnathorizedOrigin
 }
 
-#[ink::contract]
-mod spsb_auction {
-    // use ink_env::call::{build_call, ExecutionInput, Selector};
+use etf_chain_extension::ext::EtfEnvironment;
+
+#[ink::contract(env = EtfEnvironment)]
+mod vickrey_auction {
     use ink::storage::Mapping;
     use scale::{alloc::string::ToString, Encode};
     use sha3::Digest;
-    use ink::prelude::vec::Vec;
-    use crate::Error;
-
-    /// a proposal represents a timelocked bid
-    #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-    pub struct Proposal {
-        /// the ciphertext
-        ciphertext: Vec<u8>,
-        /// a 12-byte nonce
-        nonce: Vec<u8>,
-        /// the ibe ciphertext
-        capsule: Vec<u8>, // a single ibe ciphertext is expected
-        /// a sha256 hash of the bid amount
-        commitment: Vec<u8>,
-    }
+    use crate::{Error, EtfEnvironment, Proposal, Vec};
 
     /// the auction storage
     #[ink(storage)]
-    pub struct SPSBAuction {
+    pub struct VickreyAuction {
         /// the proxy (contract)
         proxy: AccountId,
         /// the item being auctioned
@@ -62,7 +61,7 @@ mod spsb_auction {
 
     /// A proposal has been accepted
     #[ink(event)]
-    pub struct ProposalSuccess { }
+    pub struct BidSuccess { }
 
     /// A bid has been executed
     #[ink(event)]
@@ -73,7 +72,7 @@ mod spsb_auction {
     /// the nft (ERC721) asset id type
     type AssetId = u32;
 
-    impl SPSBAuction {
+    impl VickreyAuction {
     
         /// Constructor that initializes a new auction
         #[ink(constructor)]
@@ -115,7 +114,7 @@ mod spsb_auction {
 
         /// get proposals
         #[ink(message)]
-        pub fn get_proposals(
+        pub fn get_proposal(
             &self, who: AccountId
         ) -> Option<Proposal> {
             self.proposals.get(who).clone()
@@ -151,16 +150,14 @@ mod spsb_auction {
         ///
         #[ink(message)]
         pub fn bid(
-            &mut self, 
-            who: AccountId,
-            ciphertext: Vec<u8>, 
-            nonce: Vec<u8>, 
+            &mut self,
+            ciphertext: Vec<u8>,
+            nonce: Vec<u8>,
             capsule: Vec<u8>, // single IbeCiphertext, capsule = Vec<IbeCiphertext>
             commitment: Vec<u8>,
         ) -> Result<(), Error> {
-            // self.check_caller()?;
             let who = self.env().caller();
-            // let caller = self.env().caller();
+
             if !self.participants.contains(&who.clone()) {
                 self.participants.push(who.clone());
             }
@@ -172,7 +169,7 @@ mod spsb_auction {
                     capsule,
                     commitment,
                 });
-            Self::env().emit_event(ProposalSuccess{});
+            Self::env().emit_event(BidSuccess{});
             Ok(())
         }
 
@@ -185,8 +182,6 @@ mod spsb_auction {
               &mut self, 
               revealed_bids: Vec<(AccountId, u128)>,
           ) -> Result<(), Error> {
-            // self.check_caller()?;
-
             let mut highest_bid: u128 = 0;
             let mut second_highest_bid: u128 = 0;
             let mut winning_bid_index: Option<usize> = None;
@@ -230,26 +225,16 @@ mod spsb_auction {
 
             Ok(())
         }
-
-        // /// check if the current caller is the authorized proxy
-        // fn check_caller(&self) -> Result<(), Error> {
-        //     let caller = self.env().caller();
-        //     let proxy = self.proxy;
-        //     if !caller.eq(&self.proxy) {
-        //         return Err(Error::UnathorizedOrigin);
-        //     }
-        //     Ok(())
-        // }
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crypto::{
-            testing::{test_ibe_params},
-            client::client::{DefaultEtfClient, EtfClient},
-            ibe::fullident::BfIbe,
-        };
+        // use crypto::{
+        //     testing::{test_ibe_params},
+        //     client::client::{DefaultEtfClient, EtfClient},
+        //     ibe::fullident::BfIbe,
+        // };
         use rand_chacha::{
             rand_core::SeedableRng,
             ChaCha20Rng
@@ -258,8 +243,8 @@ mod spsb_auction {
         #[ink::test]
         fn bid_success() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut auction = SPSBAuction::new(accounts.alice, 1u32);
-            let res = auction.bid(accounts.bob, vec![1], vec![2], vec![3], vec![4]);
+            let mut auction = VickreyAuction::new(accounts.alice, 1u32);
+            let res = auction.bid(vec![1], vec![2], vec![3], vec![4]);
             assert!(!res.is_err());
 
             let participants = auction.participants;
@@ -274,27 +259,16 @@ mod spsb_auction {
         }
 
         #[ink::test]
-        fn bid_error_when_not_proxy() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut auction = SPSBAuction::new(accounts.alice, 1u32);
-
-            // set origin to bob
-            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            let res = auction.bid(accounts.bob, vec![1], vec![2], vec![3], vec![4]);
-            assert!(res.is_err());
-        }
-
-        #[ink::test]
         fn complete_auction_success_single_participant() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut auction = SPSBAuction::new(accounts.alice, 1u32);
+            let mut auction = VickreyAuction::new(accounts.alice, 1u32);
 
             let b = 4;
             let mut hasher = sha3::Sha3_256::new();
             let bid_bytes = b.to_string();
             hasher.update(bid_bytes.clone());
             let hash = hasher.finalize().to_vec();
-            let res = auction.bid(accounts.alice, vec![1], vec![2], vec![3], hash);
+            let res = auction.bid(vec![1], vec![2], vec![3], hash);
             assert!(!res.is_err());
             let revealed_bids = vec![(accounts.alice, 4)];
             let res = auction.complete(revealed_bids);
@@ -306,7 +280,7 @@ mod spsb_auction {
         #[ink::test]
         fn complete_auction_success_many_participants_all_valid() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut auction = SPSBAuction::new(accounts.alice, 1u32);
+            let mut auction = VickreyAuction::new(accounts.alice, 1u32);
 
             let b1 = 4;
             let b1_hash = sha256(b1);
@@ -317,9 +291,12 @@ mod spsb_auction {
             let b3 = 1;
             let b3_hash = sha256(b3);
 
-            let _ = auction.bid(accounts.alice, vec![1], vec![2], vec![3], b1_hash);
-            let _ = auction.bid(accounts.bob, vec![1], vec![2], vec![3], b2_hash);
-            let _ = auction.bid(accounts.charlie, vec![1], vec![2], vec![3], b3_hash);
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.alice);
+            let _ = auction.bid(vec![1], vec![2], vec![3], b1_hash);
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
+            let _ = auction.bid(vec![1], vec![2], vec![3], b2_hash);
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.charlie);
+            let _ = auction.bid(vec![1], vec![2], vec![3], b3_hash);
 
             let revealed_bids = vec![(accounts.alice, b1), (accounts.bob, b2), (accounts.charlie, b3)];
             let res = auction.complete(revealed_bids);
@@ -336,7 +313,7 @@ mod spsb_auction {
         #[ink::test]
         fn complete_auction_success_many_participants_some_valid() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut auction = SPSBAuction::new(accounts.alice, 1u32);
+            let mut auction = VickreyAuction::new(accounts.alice, 1u32);
 
             let b1 = 4;
             let b1_hash = sha256(b1);
@@ -356,9 +333,12 @@ mod spsb_auction {
                 commitment: b3_hash.clone(),
             };
 
-            let _ = auction.bid(accounts.alice, vec![1], vec![2], vec![3], b1_hash);
-            let _ = auction.bid(accounts.bob, vec![1], vec![2], vec![3], b2_hash);
-            let _ = auction.bid(accounts.charlie, vec![1], vec![2], vec![3], b3_hash);
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.alice);
+            let _ = auction.bid(vec![1], vec![2], vec![3], b1_hash);
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
+            let _ = auction.bid(vec![1], vec![2], vec![3], b2_hash);
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.charlie);
+            let _ = auction.bid(vec![1], vec![2], vec![3], b3_hash);
 
             let revealed_bids = vec![(accounts.alice, b1), (accounts.bob, b2), (accounts.charlie, b_invalid)];
             let res = auction.complete(revealed_bids);
@@ -378,17 +358,6 @@ mod spsb_auction {
             let bytes = b.to_string();
             hasher.update(bytes.clone());
             hasher.finalize().to_vec()
-        }
-
-        #[ink::test]
-        fn complete_fails_when_not_proxy_origin() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut auction = SPSBAuction::new(accounts.alice, 1u32);
-
-            // set origin to bob
-            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            let res = auction.bid(accounts.alice, vec![1], vec![2], vec![3], vec![4]);
-            assert!(res.is_err());
         }
 
         // #[ink::test]

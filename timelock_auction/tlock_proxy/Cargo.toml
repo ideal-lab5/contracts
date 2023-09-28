@@ -10,8 +10,9 @@ ink_env = { version = "4", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 # local dependencies
-sbsp_auction = { path = "../sbsp_auction", default-features = false, features = ["ink-as-dependency"] }
+vickrey_auction = { path = "../vickrey_auction", default-features = false, features = ["ink-as-dependency"] }
 erc721 = { path = "../erc721", default-features = false, features = ["ink-as-dependency"] }
+etf-chain-extension = { path = "../../chain_extension", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
@@ -26,8 +27,9 @@ std = [
     "ink_env/std",
     "scale/std",
     "scale-info/std",
-    "sbsp_auction/std",
+    "vickrey_auction/std",
     "erc721/std",
+    "etf-chain-extension/std",
 ]
 ink-as-dependency = []
 e2e-tests = []
