@@ -184,45 +184,38 @@ mod vickrey_auction {
           ) -> Result<(), Error> {
             let mut highest_bid: u128 = 0;
             let mut second_highest_bid: u128 = 0;
-            let mut winning_bid_index: Option<usize> = None;
+            let mut winner: Option<AccountId> = None;
   
-            let mut bids_map: Mapping<AccountId, u128> = Mapping::default();
-            revealed_bids.iter().for_each(|bid| {
-                bids_map.insert(bid.0, &bid.1);
-            });
-            
-            for (idx, p) in self.participants.iter().enumerate() {
-                if let Some(b) = bids_map.get(&p) {
-                    // TODO: handle errors - what if a proposal doesn't exist?
-                    if let Some(proposal) = self.proposals.get(&p) {
-                        let expected_hash = proposal.commitment.clone();
-                        let mut hasher = sha3::Sha3_256::new();
-                        let bid_bytes = b.to_string();
-                        hasher.update(bid_bytes.clone());
-                        let actual_hash = hasher.finalize().to_vec();
+            for bid in revealed_bids.iter() {
+                let bidder = bid.0;
+                let b = bid.1;
+                if let Some(proposal) = self.proposals.get(&bidder) {
+                    let expected_hash = proposal.commitment.clone();
+                    let mut hasher = sha3::Sha3_256::new();
+                    let bid_bytes = b.to_string();
+                    hasher.update(bid_bytes.clone());
+                    let actual_hash = hasher.finalize().to_vec();
 
-                        if expected_hash.eq(&actual_hash) {
-                            self.revealed_bids.insert(p, &b);
-                            if b > highest_bid {
-                                second_highest_bid = highest_bid;
-                                highest_bid = b;
-                                winning_bid_index = Some(idx);
-                            }
-                        } else {
-                            self.failed_proposals.insert(p, &proposal);
+                    if expected_hash.eq(&actual_hash) {
+                        self.revealed_bids.insert(bidder, &b);
+                        if b > highest_bid {
+                            second_highest_bid = highest_bid;
+                            highest_bid = b;
+                            winner = Some(bidder);
+                            // winning_bid_index = Some(idx);
                         }
+                    } else {
+                        self.failed_proposals.insert(bidder, &proposal);
                     }
                 }
             }
-            // set the winner
-            if winning_bid_index.is_some() {
-                self.winner = 
-                    Some((
-                        self.participants[winning_bid_index.unwrap()], 
-                        second_highest_bid,
-                    ));
-            }
-
+            // Check if all participants have revealed their bids
+            // if self.revealed_bids.len() == self.participants.len() {
+                // Set the winner only if all bids are revealed
+                if let Some(w) = winner {
+                    self.winner = Some((w, second_highest_bid));
+                }
+            // }
             Ok(())
         }
     }
