@@ -3,11 +3,11 @@ use etf_chain_extension::ext::EtfEnvironment;
 
 #[ink::contract(env = EtfEnvironment)]
 mod tlock_proxy {
+    use crate::EtfEnvironment;
+    use erc721::Erc721Ref;
     use ink::prelude::vec::Vec;
     use ink::ToAccountId;
-    use erc721::Erc721Ref;
     use vickrey_auction::VickreyAuctionRef;
-    use crate::EtfEnvironment;
 
     /// A custom type for storing auction's details
     #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
@@ -124,14 +124,15 @@ mod tlock_proxy {
             // try to mint the asset
             let mut erc721_contract: Erc721Ref =
                 ink::env::call::FromAccountId::from_account_id(self.erc721);
-            let _= erc721_contract.mint(asset_id).map_err(|_| Error::NFTMintFailed);
+            let _ = erc721_contract
+                .mint(asset_id)
+                .map_err(|_| Error::NFTMintFailed);
 
-            let auction_contract =
-                VickreyAuctionRef::new(contract_acct_id, asset_id)
-                    .endowment(0)
-                    .code_hash(self.auction_contract_code_hash)
-                    .salt_bytes(name.as_slice())
-                    .instantiate();
+            let auction_contract = VickreyAuctionRef::new(contract_acct_id, asset_id)
+                .endowment(0)
+                .code_hash(self.auction_contract_code_hash)
+                .salt_bytes(name.as_slice())
+                .instantiate();
             // TODO: perform some basic validations
             let account_id = auction_contract.to_account_id();
             let auction = AuctionDetails {
@@ -169,17 +170,16 @@ mod tlock_proxy {
                 return Err(Error::DepositTooLow);
             }
 
-            auction_data.1.bid(
-                ciphertext, 
-                nonce, 
-                capsule, 
-                commitment,
-            ).map(|_| {
-                self.bids.push(Bid {
-                    auction_id: auction_id.clone(),
-                    bidder: caller,
-                });
-            }).map_err(|_| Error::Other);
+            auction_data
+                .1
+                .bid(ciphertext, nonce, capsule, commitment)
+                .map(|_| {
+                    self.bids.push(Bid {
+                        auction_id: auction_id.clone(),
+                        bidder: caller,
+                    });
+                })
+                .map_err(|_| Error::Other);
             Ok(())
         }
 
@@ -196,7 +196,9 @@ mod tlock_proxy {
                 return Err(Error::AuctionInProgress);
             }
 
-            auction_data.1.complete(revealed_bids)
+            auction_data
+                .1
+                .complete(revealed_bids)
                 .map_err(|_| Error::Other);
             Ok(())
         }
@@ -222,14 +224,15 @@ mod tlock_proxy {
                     // fetch asset id from contract
                     let asset_id = auction_data.1.get_asset_id();
                     let mut erc721: Erc721Ref =
-                            ink::env::call::FromAccountId::
-                                from_account_id(self.erc721);
-                    erc721.transfer(winner, asset_id)
+                        ink::env::call::FromAccountId::from_account_id(self.erc721);
+                    erc721
+                        .transfer(winner, asset_id)
                         .map_err(|_| Error::NftTransferFailed)?;
                     // fetch owner from asset details
                     let owner = auction_data.0.owner;
                     // transfer tokens
-                    self.env().transfer(owner, transferred_value)
+                    self.env()
+                        .transfer(owner, transferred_value)
                         .map_err(|_| Error::BalanceTransferFailed)?;
                 }
             }
@@ -238,12 +241,13 @@ mod tlock_proxy {
 
         #[ink(message)]
         pub fn get_encrypted_bids(
-            &self, 
-            auction_id: AccountId
+            &self,
+            auction_id: AccountId,
         ) -> Result<Vec<vickrey_auction::Proposal>> {
             let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
             let mut participants = auction_data.1.get_participants();
-            let bids = participants.iter()
+            let bids = participants
+                .iter()
                 .map(|p| auction_data.1.get_proposal(*p))
                 .filter(|p| p.is_some())
                 .map(|p| p.unwrap())
@@ -253,8 +257,8 @@ mod tlock_proxy {
 
         /// Fetch a list of all auctions
         #[ink(message)]
-        pub fn get_auctions(&self) -> Vec<AuctionDetails> {
-            self.auctions.clone()
+        pub fn get_auctions(&self) -> Result<Vec<AuctionDetails>> {
+            Ok(self.auctions.clone())
         }
 
         /// Fetch auction details by auction contract account id
@@ -269,13 +273,10 @@ mod tlock_proxy {
 
         #[ink(message)]
         pub fn get_auction_details_by_asset_id(&self, asset_id: u32) -> Result<AuctionDetails> {
-            if let Some(auction) = self.auctions
-                .iter()
-                .find(|x| x.asset_id == asset_id) {
-                    return Ok(auction.clone());
-                }
+            if let Some(auction) = self.auctions.iter().find(|x| x.asset_id == asset_id) {
+                return Ok(auction.clone());
+            }
             Err(Error::AuctionDoesNotExist)
-            
         }
 
         /// Fetch all auctions owned by the owner
@@ -283,50 +284,38 @@ mod tlock_proxy {
         /// * `owner`: The auction owner account id
         ///
         #[ink(message)]
-        pub fn get_auctions_by_owner(&self, owner: AccountId) -> Vec<u8> {
-            let mut output: Vec<u8> = Vec::new();
-            scale::Encode::encode_to(
-                &self
-                    .auctions
-                    .iter()
-                    .filter(|x| x.owner == owner)
-                    .cloned()
-                    .collect::<Vec<AuctionDetails>>(),
-                &mut output,
-            );
-            output
+        pub fn get_auctions_by_owner(&self, owner: AccountId) -> Result<Vec<AuctionDetails>> {
+            Ok(self
+                .auctions
+                .iter()
+                .filter(|x| x.owner == owner)
+                .cloned()
+                .collect::<Vec<AuctionDetails>>())
         }
 
-        /// Fetch all auctions in which the bidder has placed a bid 
+        /// Fetch all auctions in which the bidder has placed a bid
         ///
         /// * `bidder`: The bidder account id
         ///
         #[ink(message)]
-        pub fn get_auctions_by_bidder(&self, bidder: AccountId) -> Vec<u8> {
-            let mut output: Vec<u8> = Vec::new();
-            scale::Encode::encode_to(
-                &self
-                    .auctions
-                    .iter()
-                    .filter(|x| {
-                        self.bids
-                            .iter()
-                            .find(|y| y.bidder == bidder && y.auction_id == x.auction_id)
-                            .is_some()
-                    })
-                    .cloned()
-                    .collect::<Vec<AuctionDetails>>(),
-                &mut output,
-            );
-            output
+        pub fn get_auctions_by_bidder(&self, bidder: AccountId) -> Result<Vec<AuctionDetails>> {
+            Ok(self
+                .auctions
+                .iter()
+                .filter(|x| {
+                    self.bids
+                        .iter()
+                        .find(|y| y.bidder == bidder && y.auction_id == x.auction_id)
+                        .is_some()
+                })
+                .cloned()
+                .collect::<Vec<AuctionDetails>>())
         }
 
         /// check if the deadline has already passed
         /// returns true if a block is present at the slot, false otherwise
         fn is_deadline_future(&self, deadline: u64) -> bool {
-            self.env()
-                .extension()
-                .check_slot(deadline)
+            self.env().extension().check_slot(deadline)
         }
 
         /// fetch an child auction by its account id
@@ -334,8 +323,8 @@ mod tlock_proxy {
         /// * `auction_id`: The account id of the contract
         ///
         fn get_auction_by_auction_id(
-            &self, 
-            auction_id: AccountId
+            &self,
+            auction_id: AccountId,
         ) -> Result<(AuctionDetails, VickreyAuctionRef)> {
             let auction = self
                 .auctions
@@ -381,12 +370,8 @@ mod tlock_proxy {
                 .upload("vickrey_auction", &ink_e2e::alice(), None)
                 .await
                 .expect("should be ok")
-                .code_hash; 
-            let tlock_proxy = TlockProxyRef::new(
-                    accounts.bob,
-                    auction_code_hash,
-                    erc721_code_hash,
-                );
+                .code_hash;
+            let tlock_proxy = TlockProxyRef::new(accounts.bob, auction_code_hash, erc721_code_hash);
             // When: I instantiate the contract
             let contract_account_id = client
                 .instantiate("tlock_proxy", &ink_e2e::alice(), tlock_proxy, 0, None)
@@ -394,13 +379,11 @@ mod tlock_proxy {
                 .expect("instantiate failed")
                 .account_id;
 
-            let get_auctions = 
-                ink_e2e::MessageBuilder::<
-                    crate::EtfEnvironment, 
-                    TlockProxyRef
-                >::from_account_id(
+            let get_auctions =
+                ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
-                ).call(|proxy| proxy.get_auctions());
+                )
+                .call(|proxy| proxy.get_auctions());
 
             let get_auctions_res = client
                 .call(&ink_e2e::bob(), get_auctions, 0, None)
@@ -412,9 +395,7 @@ mod tlock_proxy {
         }
 
         #[ink_e2e::test(environment = crate::EtfEnvironment)]
-        async fn new_auction_works(
-            mut client: ink_e2e::Client<C, E>
-        ) -> E2EResult<()> {
+        async fn new_auction_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             let erc721_code_hash = client
                 .upload("erc721", &ink_e2e::alice(), None)
@@ -426,12 +407,8 @@ mod tlock_proxy {
                 .upload("vickrey_auction", &ink_e2e::alice(), None)
                 .await
                 .expect("should be ok")
-                .code_hash; 
-            let tlock_proxy = TlockProxyRef::new(
-                    accounts.bob,
-                    auction_code_hash,
-                    erc721_code_hash,
-                );
+                .code_hash;
+            let tlock_proxy = TlockProxyRef::new(accounts.bob, auction_code_hash, erc721_code_hash);
             // When: I instantiate the contract
             let contract_account_id = client
                 .instantiate("tlock_proxy", &ink_e2e::alice(), tlock_proxy, 0, None)
@@ -440,42 +417,30 @@ mod tlock_proxy {
                 .account_id;
 
             // And: I create a new auction
-            let new_auction = 
-                ink_e2e::MessageBuilder::<
-                    crate::EtfEnvironment, 
-                    TlockProxyRef
-                >::from_account_id(
+            let new_auction =
+                ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
-                ).call(|proxy| proxy.new_auction(
-                    b"my_auction".to_vec(),
-                    1u32,
-                    1u64,
-                    1,
-                ));
+                )
+                .call(|proxy| proxy.new_auction(b"my_auction".to_vec(), 1u32, 1u64, 1));
 
             let new_auction_res = client
                 .call(&ink_e2e::bob(), new_auction, 0, None)
                 .await
                 .expect("get failed");
 
-            let auction_contract_id = new_auction_res.return_value()
-                .ok().unwrap();
+            let auction_contract_id = new_auction_res.return_value().ok().unwrap();
 
-            let get_auctions = 
-                ink_e2e::MessageBuilder::<
-                    crate::EtfEnvironment, 
-                    TlockProxyRef
-                >::from_account_id(
+            let get_auctions =
+                ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
-                ).call(|proxy| proxy.get_auctions());
-            
-            let get_auctions_by_id = 
-                ink_e2e::MessageBuilder::<
-                    crate::EtfEnvironment, 
-                    TlockProxyRef
-                >::from_account_id(
+                )
+                .call(|proxy| proxy.get_auctions());
+
+            let get_auctions_by_id =
+                ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
-                ).call(|proxy| proxy.get_auction_details(auction_contract_id));
+                )
+                .call(|proxy| proxy.get_auction_details(auction_contract_id));
 
             let get_auctions_res = client
                 .call(&ink_e2e::bob(), get_auctions, 0, None)
@@ -497,14 +462,15 @@ mod tlock_proxy {
                 status: 0,
             };
             assert!(matches!(get_auctions_res.return_value().len(), 1));
-            assert!(matches!(get_auction_by_id_res.return_value(), expected_auction_details));
+            assert!(matches!(
+                get_auction_by_id_res.return_value(),
+                expected_auction_details
+            ));
             Ok(())
         }
 
         #[ink_e2e::test(environment = crate::EtfEnvironment)]
-        async fn bid_works(
-            mut client: ink_e2e::Client<C, E>
-        ) -> E2EResult<()> {
+        async fn bid_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             let erc721_code_hash = client
                 .upload("erc721", &ink_e2e::alice(), None)
@@ -516,12 +482,8 @@ mod tlock_proxy {
                 .upload("vickrey_auction", &ink_e2e::alice(), None)
                 .await
                 .expect("should be ok")
-                .code_hash; 
-            let tlock_proxy = TlockProxyRef::new(
-                    accounts.bob,
-                    auction_code_hash,
-                    erc721_code_hash,
-                );
+                .code_hash;
+            let tlock_proxy = TlockProxyRef::new(accounts.bob, auction_code_hash, erc721_code_hash);
             // When: I instantiate the contract
             let contract_account_id = client
                 .instantiate("tlock_proxy", &ink_e2e::alice(), tlock_proxy, 0, None)
@@ -530,54 +492,42 @@ mod tlock_proxy {
                 .account_id;
 
             // And: I create a new auction
-            let new_auction = 
-                ink_e2e::MessageBuilder::<
-                    crate::EtfEnvironment, 
-                    TlockProxyRef
-                >::from_account_id(
+            let new_auction =
+                ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
-                ).call(|proxy| proxy.new_auction(
-                    b"my_auction".to_vec(),
-                    1u32,
-                    1000000000u64, // some slot waaaay in the future
-                    1,
-                ));
+                )
+                .call(|proxy| {
+                    proxy.new_auction(
+                        b"my_auction".to_vec(),
+                        1u32,
+                        1000000000u64, // some slot waaaay in the future
+                        1,
+                    )
+                });
 
             let new_auction_res = client
                 .call(&ink_e2e::bob(), new_auction, 0, None)
                 .await
                 .expect("get failed");
 
-            let auction_acct_id = new_auction_res.return_value()
-                .ok().unwrap();
+            let auction_acct_id = new_auction_res.return_value().ok().unwrap();
 
-            let bid_call = 
-                ink_e2e::MessageBuilder::<
-                    crate::EtfEnvironment,
-                    TlockProxyRef
-                >::from_account_id(
-                    contract_account_id
-                ).call(|p| p.bid(
-                    auction_acct_id,
-                    vec![1u8],
-                    vec![2u8],
-                    vec![3u8],
-                    vec![4u8],
-                )); 
+            let bid_call =
+                ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
+                    contract_account_id,
+                )
+                .call(|p| p.bid(auction_acct_id, vec![1u8], vec![2u8], vec![3u8], vec![4u8]));
 
-            let _ = client.call(&ink_e2e::bob(), bid_call, 0, None)
+            let _ = client
+                .call(&ink_e2e::bob(), bid_call, 0, None)
                 .await
                 .expect("failed");
-            
-            let bid_query = 
-                ink_e2e::MessageBuilder::<
-                    crate::EtfEnvironment, 
-                    TlockProxyRef
-                >::from_account_id(
+
+            let bid_query =
+                ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
-                ).call(|proxy| proxy.get_auctions_by_bidder(
-                    accounts.alice
-                ));
+                )
+                .call(|proxy| proxy.get_auctions_by_bidder(accounts.alice));
 
             let bid_query_res = client
                 .call(&ink_e2e::bob(), bid_query, 0, None)
