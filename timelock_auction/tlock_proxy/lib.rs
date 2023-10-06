@@ -64,6 +64,8 @@ mod tlock_proxy {
         AuctionUnverified,
         /// there is no auction identified by the provided id
         AuctionDoesNotExist,
+        /// the auction winner has not been determined
+        NoWinnerDetermined,
         /// placeholder
         Other,
     }
@@ -170,16 +172,18 @@ mod tlock_proxy {
                 return Err(Error::DepositTooLow);
             }
 
-            auction_data
-                .1
-                .bid(ciphertext, nonce, capsule, commitment)
-                .map(|_| {
-                    self.bids.push(Bid {
-                        auction_id: auction_id.clone(),
-                        bidder: caller,
-                    });
-                })
-                .map_err(|_| Error::Other);
+            auction_data.1.bid(
+                caller,
+                ciphertext, 
+                nonce, 
+                capsule, 
+                commitment,
+            ).map(|_| {
+                self.bids.push(Bid {
+                    auction_id: auction_id.clone(),
+                    bidder: caller,
+                });
+            }).map_err(|_| Error::Other);
             Ok(())
         }
 
@@ -188,7 +192,7 @@ mod tlock_proxy {
         pub fn complete(
             &mut self,
             auction_id: AccountId,
-            revealed_bids: Vec<(AccountId, u128)>,
+            revealed_bids: Vec<vickrey_auction::RevealedBid<AccountId>>,
         ) -> Result<()> {
             let mut auction_data = self.get_auction_by_auction_id(auction_id.clone())?;
             // check deadline
@@ -241,18 +245,31 @@ mod tlock_proxy {
 
         #[ink(message)]
         pub fn get_encrypted_bids(
-            &self,
-            auction_id: AccountId,
-        ) -> Result<Vec<vickrey_auction::Proposal>> {
+            &self, 
+            auction_id: AccountId
+        ) -> Result<Vec<(AccountId, vickrey_auction::Proposal)>> {
             let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
             let mut participants = auction_data.1.get_participants();
-            let bids = participants
-                .iter()
-                .map(|p| auction_data.1.get_proposal(*p))
-                .filter(|p| p.is_some())
-                .map(|p| p.unwrap())
+            let bids = participants.iter()
+                .map(|p| (p, auction_data.1.get_proposal(*p)))
+                .filter(|x| x.1.is_some())
+                .map(|x| (*x.0, x.1.unwrap()))
                 .collect::<Vec<_>>();
             Ok(bids)
+        }
+
+        /// get the winner and payment owed
+        /// by the winner of an auction
+        #[ink(message)]
+        pub fn get_winner(
+            &self,
+            auction_id: AccountId,
+        ) -> Result<(AccountId, Balance)> {
+            let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
+            if let Some(winner) = auction_data.1.get_winner() {
+                return Ok(winner);
+            }
+            Err(Error::NoWinnerDetermined)
         }
 
         /// Fetch a list of all auctions
