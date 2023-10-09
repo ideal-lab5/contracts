@@ -22,6 +22,16 @@ pub struct Proposal {
     commitment: Vec<u8>,
 }
 
+/// The result of an auction
+#[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
+#[cfg_attr(
+    feature = "std",
+    derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+)]
+pub struct AuctionResult<AccountId, Balance> {
+    pub winner: AccountId,
+    pub debt: Balance,
+}
 
 /// A custom type for storing revealed bids
 #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
@@ -44,7 +54,7 @@ mod vickrey_auction {
     use scale::alloc::string::ToString;
     use sha3::Digest;
     use crate::{
-        EtfEnvironment, Proposal, Vec, RevealedBid};
+        EtfEnvironment, Proposal, Vec, RevealedBid, AuctionResult};
 
 
     #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
@@ -72,7 +82,7 @@ mod vickrey_auction {
         /// but maybe could do a struct instead? (acctid, vec, vec, vec)
         participants: Vec<AccountId>,
         /// the participant who won and how much they owe
-        winner: Option<(AccountId, u128)>,
+        winner: Option<AuctionResult<AccountId, Balance>>,
         /// the decrypted proposals
         revealed_bids: Vec<RevealedBid<AccountId>>,
     }
@@ -117,16 +127,16 @@ mod vickrey_auction {
         /// get the version of the contract
         #[ink(message)]
         pub fn get_asset_id(&self) -> AssetId {
-            self.asset_id.clone()
+            self.asset_id
         }
 
         #[ink(message)]
         pub fn get_proxy(&self) -> AccountId {
-            self.proxy.clone()
+            self.proxy
         }
 
         #[ink(message)]
-        pub fn get_winner(&self) -> Option<(AccountId, u128)> {
+        pub fn get_winner(&self) -> Option<AuctionResult<AccountId, Balance>> {
             self.winner.clone()
         }
 
@@ -181,7 +191,7 @@ mod vickrey_auction {
             }
 
             if !self.participants.contains(&bidder.clone()) {
-                self.participants.push(bidder.clone());
+                self.participants.push(bidder);
             }
 
             self.proposals.insert(bidder, 
@@ -211,7 +221,7 @@ mod vickrey_auction {
             for bid in revealed_bids.iter() {
                 let bidder = bid.bidder;
                 let b = bid.bid;
-                if let Some(proposal) = self.proposals.get(&bidder) {
+                if let Some(proposal) = self.proposals.get(bidder) {
                     let expected_hash = proposal.commitment.clone();
                     let mut hasher = sha3::Sha3_256::new();
                     let bid_bytes = b.to_string();
@@ -228,7 +238,6 @@ mod vickrey_auction {
                             second_highest_bid = highest_bid;
                             highest_bid = b;
                             winner = Some(bidder);
-                            // winning_bid_index = Some(idx);
                         }
                     } else {
                         self.failed_proposals.insert(bidder, &proposal);
@@ -237,10 +246,13 @@ mod vickrey_auction {
             }
             // Check if all participants have revealed their bids
             // if self.revealed_bids.len() == self.participants.len() {
-                // Set the winner only if all bids are revealed
-                if let Some(w) = winner {
-                    self.winner = Some((w, second_highest_bid));
-                }
+            // Set the winner only if all bids are revealed
+            if let Some(w) = winner {
+                self.winner = Some(AuctionResult {
+                    winner: w, 
+                    debt: second_highest_bid
+                });
+            }
             // }
             Ok(())
         }
