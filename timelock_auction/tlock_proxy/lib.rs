@@ -139,7 +139,7 @@ mod tlock_proxy {
             let account_id = auction_contract.to_account_id();
             let auction = AuctionDetails {
                 name: name.clone(),
-                auction_id: account_id.clone(),
+                auction_id: account_id,
                 asset_id,
                 owner: caller,
                 deposit,
@@ -162,7 +162,7 @@ mod tlock_proxy {
             commitment: Vec<u8>,
         ) -> Result<()> {
             let caller = self.env().caller();
-            let mut auction_data = self.get_auction_by_auction_id(auction_id.clone())?;
+            let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
             if !self.is_deadline_future(auction_data.0.deadline) {
                 return Err(Error::AuctionAlreadyComplete);
             }
@@ -180,10 +180,10 @@ mod tlock_proxy {
                 commitment,
             ).map(|_| {
                 self.bids.push(Bid {
-                    auction_id: auction_id.clone(),
+                    auction_id: auction_id,
                     bidder: caller,
                 });
-            }).map_err(|_| Error::Other);
+            }).map_err(|_| Error::Other)?;
             Ok(())
         }
 
@@ -194,7 +194,7 @@ mod tlock_proxy {
             auction_id: AccountId,
             revealed_bids: Vec<vickrey_auction::RevealedBid<AccountId>>,
         ) -> Result<()> {
-            let mut auction_data = self.get_auction_by_auction_id(auction_id.clone())?;
+            let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
             // check deadline
             if self.is_deadline_future(auction_data.0.deadline) {
                 return Err(Error::AuctionInProgress);
@@ -203,7 +203,7 @@ mod tlock_proxy {
             auction_data
                 .1
                 .complete(revealed_bids)
-                .map_err(|_| Error::Other);
+                .map_err(|_| Error::Other)?;
             Ok(())
         }
 
@@ -213,13 +213,15 @@ mod tlock_proxy {
             let caller = self.env().caller();
             let transferred_value = self.env().transferred_value();
 
-            let mut auction_data = self.get_auction_by_auction_id(auction_id.clone())?;
+            let auction_data = self.get_auction_by_auction_id(auction_id)?;
 
             if self.is_deadline_future(auction_data.0.deadline) {
                 return Err(Error::AuctionInProgress);
             }
 
-            if let Some((winner, debt)) = auction_data.1.get_winner() {
+            if let Some(result) = auction_data.1.get_winner() {
+                let winner = result.winner;
+                let debt = result.debt;
                 if winner.eq(&caller) {
                     if !transferred_value.eq(&debt) {
                         return Err(Error::InvalidCurrencyAmountTransferred);
@@ -248,8 +250,8 @@ mod tlock_proxy {
             &self, 
             auction_id: AccountId
         ) -> Result<Vec<(AccountId, vickrey_auction::Proposal)>> {
-            let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
-            let mut participants = auction_data.1.get_participants();
+            let auction_data = self.get_auction_by_auction_id(auction_id)?;
+            let participants = auction_data.1.get_participants();
             let bids = participants.iter()
                 .map(|p| (p, auction_data.1.get_proposal(*p)))
                 .filter(|x| x.1.is_some())
@@ -264,8 +266,8 @@ mod tlock_proxy {
         pub fn get_winner(
             &self,
             auction_id: AccountId,
-        ) -> Result<(AccountId, Balance)> {
-            let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
+        ) -> Result<vickrey_auction::AuctionResult<AccountId, Balance>> {
+            let auction_data = self.get_auction_by_auction_id(auction_id)?;
             if let Some(winner) = auction_data.1.get_winner() {
                 return Ok(winner);
             }
@@ -322,8 +324,7 @@ mod tlock_proxy {
                 .filter(|x| {
                     self.bids
                         .iter()
-                        .find(|y| y.bidder == bidder && y.auction_id == x.auction_id)
-                        .is_some()
+                        .any(|y| y.bidder == bidder && y.auction_id == x.auction_id)
                 })
                 .cloned()
                 .collect::<Vec<AuctionDetails>>())
@@ -350,6 +351,7 @@ mod tlock_proxy {
                 .ok_or(Error::AuctionDoesNotExist)?;
             let auction_contract: VickreyAuctionRef =
                 ink::env::call::FromAccountId::from_account_id(auction.auction_id.clone());
+            // clippy calls out the next line, but it must be cloned (since AuctionResult does not implement Copy, because Vec does not)
             Ok((auction.clone(), auction_contract))
         }
     }

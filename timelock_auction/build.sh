@@ -11,7 +11,7 @@ root="."
 # Use find to list all child directories of directory A
 child_directories=$(find "$root" -type d)
 
-echo "Found directories $child_directories"
+# echo "Found directories $child_directories"
 
 # Loop through the child directories
 #directory_names=""
