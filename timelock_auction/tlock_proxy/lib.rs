@@ -363,6 +363,8 @@ mod tlock_proxy {
     mod tests {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
+        // unit tests cannot be implemented for this contract
+        // as it relies on offchain functionality within the constructor
     }
 
     /// E2E Tests
@@ -409,7 +411,7 @@ mod tlock_proxy {
                 .await
                 .expect("get failed");
 
-            assert!(matches!(get_auctions_res.return_value().is_empty(), true));
+            assert!(matches!(get_auctions_res.return_value().unwrap().is_empty(), true));
             Ok(())
         }
 
@@ -480,7 +482,7 @@ mod tlock_proxy {
                 deadline: 1u64,
                 status: 0,
             };
-            assert!(matches!(get_auctions_res.return_value().len(), 1));
+            assert!(matches!(get_auctions_res.return_value().unwrap().len(), 1));
             assert!(matches!(
                 get_auction_by_id_res.return_value(),
                 expected_auction_details
@@ -502,7 +504,7 @@ mod tlock_proxy {
                 .await
                 .expect("should be ok")
                 .code_hash;
-            let tlock_proxy = TlockProxyRef::new(accounts.bob, auction_code_hash, erc721_code_hash);
+            let tlock_proxy = TlockProxyRef::new(accounts.alice, auction_code_hash, erc721_code_hash);
             // When: I instantiate the contract
             let contract_account_id = client
                 .instantiate("tlock_proxy", &ink_e2e::alice(), tlock_proxy, 0, None)
@@ -519,17 +521,17 @@ mod tlock_proxy {
                     proxy.new_auction(
                         b"my_auction".to_vec(),
                         1u32,
-                        1000000000u64, // some slot waaaay in the future
+                        9999999998u64, // some slot waaaay in the future
                         1,
                     )
                 });
 
             let new_auction_res = client
-                .call(&ink_e2e::bob(), new_auction, 0, None)
+                .call(&ink_e2e::alice(), new_auction, 0, None)
                 .await
                 .expect("get failed");
 
-            let auction_acct_id = new_auction_res.return_value().ok().unwrap();
+            let auction_acct_id: AccountId = new_auction_res.return_value().ok().unwrap();
 
             let bid_call =
                 ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
@@ -538,7 +540,7 @@ mod tlock_proxy {
                 .call(|p| p.bid(auction_acct_id, vec![1u8], vec![2u8], vec![3u8], vec![4u8]));
 
             let _ = client
-                .call(&ink_e2e::bob(), bid_call, 0, None)
+                .call(&ink_e2e::alice(), bid_call, 1, None)
                 .await
                 .expect("failed");
 
@@ -546,21 +548,15 @@ mod tlock_proxy {
                 ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
                 )
-                .call(|proxy| proxy.get_auctions_by_bidder(accounts.alice));
+                .call(|proxy| proxy.get_auctions_by_bidder(ink_e2e::account_id(ink_e2e::AccountKeyring::Alice)));
 
             let bid_query_res = client
-                .call(&ink_e2e::bob(), bid_query, 0, None)
+                .call(&ink_e2e::alice(), bid_query, 0, None)
                 .await
                 .expect("get failed");
 
             let res = bid_query_res.return_value();
-            // let _ = bid_res.return_value().unwrap();
-            // let expected_bid = Bid {
-            //     auction_id: auction_acct_id,
-            //     bidder: ink_env::alice().account_id
-            // };
-            assert!(matches!(res.len(), 1));
-            // assert!(matches!(bids[0], expected_bid));
+            assert!(matches!(res.unwrap().len(), 1));
             Ok(())
         }
     }
