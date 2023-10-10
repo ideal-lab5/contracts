@@ -22,6 +22,7 @@ mod tlock_proxy {
         owner: AccountId,
         deposit: Balance,
         deadline: u64,
+        published: Timestamp,
         status: u8,
     }
 
@@ -144,6 +145,7 @@ mod tlock_proxy {
                 owner: caller,
                 deposit,
                 deadline,
+                published: self.env().block_timestamp(),
                 status: 0,
             };
             self.auctions.push(auction);
@@ -172,18 +174,16 @@ mod tlock_proxy {
                 return Err(Error::DepositTooLow);
             }
 
-            auction_data.1.bid(
-                caller,
-                ciphertext, 
-                nonce, 
-                capsule, 
-                commitment,
-            ).map(|_| {
-                self.bids.push(Bid {
-                    auction_id: auction_id,
-                    bidder: caller,
-                });
-            }).map_err(|_| Error::Other)?;
+            auction_data
+                .1
+                .bid(caller, ciphertext, nonce, capsule, commitment)
+                .map(|_| {
+                    self.bids.push(Bid {
+                        auction_id: auction_id,
+                        bidder: caller,
+                    });
+                })
+                .map_err(|_| Error::Other)?;
             Ok(())
         }
 
@@ -247,12 +247,13 @@ mod tlock_proxy {
 
         #[ink(message)]
         pub fn get_encrypted_bids(
-            &self, 
-            auction_id: AccountId
+            &self,
+            auction_id: AccountId,
         ) -> Result<Vec<(AccountId, vickrey_auction::Proposal)>> {
             let auction_data = self.get_auction_by_auction_id(auction_id)?;
             let participants = auction_data.1.get_participants();
-            let bids = participants.iter()
+            let bids = participants
+                .iter()
                 .map(|p| (p, auction_data.1.get_proposal(*p)))
                 .filter(|x| x.1.is_some())
                 .map(|x| (*x.0, x.1.unwrap()))
