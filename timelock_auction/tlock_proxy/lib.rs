@@ -204,6 +204,9 @@ mod tlock_proxy {
                 .1
                 .complete(revealed_bids)
                 .map_err(|_| Error::Other)?;
+            let mut new_auction_data = auction_data.0.clone();
+            new_auction_data.status = 1;
+            self.auctions[auction_data.2] = new_auction_data;
             Ok(())
         }
 
@@ -344,16 +347,17 @@ mod tlock_proxy {
         fn get_auction_by_auction_id(
             &self,
             auction_id: AccountId,
-        ) -> Result<(AuctionDetails, VickreyAuctionRef)> {
-            let auction = self
+        ) -> Result<(AuctionDetails, VickreyAuctionRef, usize)> {
+            let (index, auction) = self
                 .auctions
                 .iter()
-                .find(|x| x.auction_id == auction_id)
+                .enumerate()
+                .find(|(_, x)| x.auction_id == auction_id)
                 .ok_or(Error::AuctionDoesNotExist)?;
             let auction_contract: VickreyAuctionRef =
                 ink::env::call::FromAccountId::from_account_id(auction.auction_id.clone());
             // clippy calls out the next line, but it must be cloned (since AuctionResult does not implement Copy, because Vec does not)
-            Ok((auction.clone(), auction_contract))
+            Ok((auction.clone(), auction_contract, index))
         }
     }
 
