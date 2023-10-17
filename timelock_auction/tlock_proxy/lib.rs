@@ -24,6 +24,7 @@ mod tlock_proxy {
         deadline: u64,
         published: Timestamp,
         status: u8,
+        bids: u8,
     }
 
     /// A custom type for representing the relationship between a bidder and an auction
@@ -147,6 +148,7 @@ mod tlock_proxy {
                 deadline,
                 published: self.env().block_timestamp(),
                 status: 0,
+                bids: 0,
             };
             self.auctions.push(auction);
             Ok(account_id)
@@ -178,6 +180,11 @@ mod tlock_proxy {
                 .1
                 .bid(caller, ciphertext, nonce, capsule, commitment)
                 .map(|_| {
+                    // update the number of bids
+                    let mut new_auction_data = auction_data.0.clone();
+                    new_auction_data.bids += 1;
+                    self.auctions[auction_data.2] = new_auction_data;
+                    // update the bids map
                     self.bids.push(Bid {
                         auction_id: auction_id,
                         bidder: caller,
