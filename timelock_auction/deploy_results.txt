@@ -1,0 +1,4 @@
+auction_contract_code_hash: 
+erc_721_code_hash: 
+proxy_contract_address: 
+erc721_contract_address: 

@@ -1,7 +1,7 @@
 [package]
-name = "timelock-auction"
+name = "tlock_proxy"
 version = "0.1.0"
-authors = ["Tony Riemer <driemworks@idealabs.network>"]
+authors = ["[Carlos Montoya] <carlos@idealabs.network>"]
 edition = "2021"
 
 [dependencies]
@@ -9,13 +9,13 @@ ink = { version = "4.2.0", default-features = false }
 ink_env = { version = "4", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
-
-#crypto = { git = "https://github.com/ideal-lab5/etf-sdk", branch = "m3", default-features = false }
-crypto = { package = "crypto", path = "../../etf-sdk/crypto" }
+# local dependencies
+vickrey_auction = { path = "../vickrey_auction", default-features = false, features = ["ink-as-dependency"] }
+erc721 = { path = "../erc721", default-features = false, features = ["ink-as-dependency"] }
+etf-chain-extension = { path = "../../chain_extension", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
-rand_chacha = { version = "0.3.1", default-features = false }
 
 [lib]
 path = "lib.rs"
@@ -27,6 +27,9 @@ std = [
     "ink_env/std",
     "scale/std",
     "scale-info/std",
+    "vickrey_auction/std",
+    "erc721/std",
+    "etf-chain-extension/std",
 ]
 ink-as-dependency = []
 e2e-tests = []

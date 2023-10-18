@@ -18,7 +18,7 @@ If your package manager doesn't have binaryen versions >= 99, then:
 
 ``` bash
 # unzip the tarball
-sudo tar xzvf binaryen-version_100-x86_64-linux.tar.gz
+sudo tar xzvf binaryezn-version_100-x86_64-linux.tar.gz
 # update permissions
 chmod +x binaryen-version_100
 # move to /opt
@@ -33,14 +33,26 @@ sudo ln -s /opt/binaryen-version_100/bin/wasm-opt /usr/bin/wasm-opt
 
 Verify the installation by running `wasm-opt --version`. If the command executes and the printed version matches the downloaded version, then the installation is complete.
 
-## Build
+### Build
 
-``` bash
+```
 cargo +nightly contract build
 ```
 
-## Test
+### Testing
 
-``` bash
-cargo test 
+#### Unit Tests
+Unit tests can be run with
+
+``` rust
+cargo test
+```
+
+#### E2E tests
+
+End-to-end tests reequires that you run a node locally and provide it's absolute path (e.g. /home/.../substrate/target/release/node-template). 
+
+``` rust
+export CONTRACTS_NODE="YOUR_CONTRACTS_NODE_PATH"
+cargo +nightly test --features e2e-tests
 ```
