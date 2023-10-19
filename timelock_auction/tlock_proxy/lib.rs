@@ -130,7 +130,7 @@ mod tlock_proxy {
                 ink::env::call::FromAccountId::from_account_id(self.erc721);
             let _ = erc721_contract
                 .mint(asset_id)
-                .map_err(|_| Error::NFTMintFailed);
+                .map_err(|_| Error::NFTMintFailed)?;
 
             let auction_contract = VickreyAuctionRef::new(contract_acct_id, asset_id)
                 .endowment(0)
