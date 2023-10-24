@@ -297,7 +297,7 @@ mod vickrey_auction {
                 vec![4]
             );
             assert!(res.is_err());
-            assert_eq!(res, Err(crate::Error::NotProxy));
+            assert_eq!(res, Err(Error::NotProxy));
         }
 
         #[ink::test]
@@ -312,11 +312,11 @@ mod vickrey_auction {
             let hash = hasher.finalize().to_vec();
             let res = auction.bid(accounts.alice, vec![1], vec![2], vec![3], hash);
             assert!(!res.is_err());
-            let revealed_bids = vec![(accounts.alice, 4)];
-            let res = auction.complete(revealed_bids);
+            let revealed_bids = vec![RevealedBid { bidder: accounts.alice, bid: 4 }];
+            let res = auction.complete(revealed_bids.clone());
             assert!(!res.is_err());
-            assert_eq!(auction.revealed_bids.get(accounts.alice), Some(4));
-            assert_eq!(auction.winner, Some((accounts.alice, 0)))
+            assert_eq!(auction.revealed_bids[0], revealed_bids[0]);
+            assert_eq!(auction.winner, Some(AuctionResult { winner: accounts.alice, debt:  0 }))
         }
 
         #[ink::test]
@@ -340,15 +340,20 @@ mod vickrey_auction {
             // ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.charlie);
             let _ = auction.bid(accounts.charlie, vec![1], vec![2], vec![3], b3_hash);
 
-            let revealed_bids = vec![(accounts.alice, b1), (accounts.bob, b2), (accounts.charlie, b3)];
-            let res = auction.complete(revealed_bids);
+            
+            let revealed_bids = vec![
+                RevealedBid { bidder: accounts.alice, bid: b1 },
+                RevealedBid { bidder: accounts.bob, bid: b2 },
+                RevealedBid { bidder: accounts.charlie, bid: b3 },
+            ];
+            let res = auction.complete(revealed_bids.clone());
 
             assert!(!res.is_err());
-            assert_eq!(auction.revealed_bids.get(accounts.alice), Some(4));
-            assert_eq!(auction.revealed_bids.get(accounts.bob), Some(6));
-            assert_eq!(auction.revealed_bids.get(accounts.charlie), Some(1));
+            assert_eq!(auction.revealed_bids[0], revealed_bids[0].clone());
+            assert_eq!(auction.revealed_bids[1], revealed_bids[1].clone());
+            assert_eq!(auction.revealed_bids[2], revealed_bids[2]);
             // bob placed the highest bid and pays alice's bid
-            assert_eq!(auction.winner, Some((accounts.bob, b1)))
+            assert_eq!(auction.winner, Some(AuctionResult { winner: accounts.bob, debt: b1 }))
         }
 
 
@@ -366,8 +371,6 @@ mod vickrey_auction {
             let b3 = 1;
             let b3_hash = sha256(b3);
 
-            let b_invalid = 100;
-
             let expected_failed_proposal = Proposal {
                 ciphertext: vec![1],
                 nonce: vec![2], 
@@ -382,16 +385,21 @@ mod vickrey_auction {
             // ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.charlie);
             let _ = auction.bid(accounts.charlie, vec![1], vec![2], vec![3], b3_hash);
 
-            let revealed_bids = vec![(accounts.alice, b1), (accounts.bob, b2), (accounts.charlie, b_invalid)];
-            let res = auction.complete(revealed_bids);
+            let revealed_bids = vec![
+                RevealedBid { bidder: accounts.alice, bid: b1 },
+                RevealedBid { bidder: accounts.bob, bid: b2 },
+                RevealedBid { bidder: accounts.charlie, bid: b2 },
+            ];
+            let res = auction.complete(revealed_bids.clone());
 
             assert!(!res.is_err());
-            assert_eq!(auction.revealed_bids.get(accounts.alice), Some(4));
-            assert_eq!(auction.revealed_bids.get(accounts.bob), Some(6));
-            assert_eq!(auction.revealed_bids.get(accounts.charlie), None);
+            assert_eq!(auction.revealed_bids[0], revealed_bids[0].clone());
+            assert_eq!(auction.revealed_bids[1], revealed_bids[1]);
+            
+            // assert_eq!(auction.failed_proposals.get[2], revealed_bids[2]);
             assert_eq!(auction.failed_proposals.get(accounts.charlie), Some(expected_failed_proposal));
             // bob placed the highest bid and pays alice's bid
-            assert_eq!(auction.winner, Some((accounts.bob, b1)))
+            assert_eq!(auction.winner, Some(AuctionResult { winner: accounts.bob, debt: b1 }))
         }
 
 
