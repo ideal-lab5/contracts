@@ -371,8 +371,6 @@ mod vickrey_auction {
             let b3 = 1;
             let b3_hash = sha256(b3);
 
-            let b_invalid = 100;
-
             let expected_failed_proposal = Proposal {
                 ciphertext: vec![1],
                 nonce: vec![2], 

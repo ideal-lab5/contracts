@@ -368,13 +368,11 @@ mod tlock_proxy {
         }
     }
 
-    /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
-    /// module and test functions are marked with a `#[test]` attribute.
-    /// The below code is technically just normal Rust code.
+    /// all tests are done through e2e currently, since this contract
+    /// depends on uploaded code hashes and cross contract calls
     #[cfg(test)]
     mod tests {
-        /// Imports all the definitions from the outer scope so we can use them here.
-        use super::*;
+        // use super::*;
     }
 
     /// E2E Tests
@@ -421,7 +419,10 @@ mod tlock_proxy {
                 .await
                 .expect("get failed");
 
-            assert!(matches!(get_auctions_res.return_value().is_empty(), true));
+            assert!(matches!(get_auctions_res.return_value()
+                .expect("should be empty")
+                .is_empty(), 
+                true));
             Ok(())
         }
 
@@ -491,10 +492,13 @@ mod tlock_proxy {
                 deposit: 1,
                 deadline: 1u64,
                 status: 0,
+                bids: 0,
+                published: 0,
             };
-            assert!(matches!(get_auctions_res.return_value().len(), 1));
+            assert!(matches!(get_auctions_res.return_value()
+                .expect("should be non-empty").len(), 1));
             assert!(matches!(
-                get_auction_by_id_res.return_value(),
+                get_auction_by_id_res.return_value().expect("should be ok"),
                 expected_auction_details
             ));
             Ok(())
@@ -537,7 +541,7 @@ mod tlock_proxy {
                 });
 
             let new_auction_res = client
-                .call(&ink_e2e::bob(), new_auction, 0, None)
+                .call(&ink_e2e::alice(), new_auction, 0, None)
                 .await
                 .expect("get failed");
 
@@ -549,30 +553,27 @@ mod tlock_proxy {
                 )
                 .call(|p| p.bid(auction_acct_id, vec![1u8], vec![2u8], vec![3u8], vec![4u8]));
 
-            let _ = client
-                .call(&ink_e2e::bob(), bid_call, 0, None)
+            let bid_res = client
+                .call(&ink_e2e::alice(), bid_call, 1, None)
                 .await
                 .expect("failed");
 
+            assert!(matches!(bid_res.return_value(), Ok(())));
+    
+            let acct_bytes: [u8;32] = *ink_e2e::alice().public_key().to_account_id().as_ref();
+            let acct_id = AccountId::from(acct_bytes);
             let bid_query =
                 ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
-                )
-                .call(|proxy| proxy.get_auctions_by_bidder(accounts.alice));
+                ).call(|proxy| proxy.get_auctions_by_bidder(acct_id));
 
             let bid_query_res = client
-                .call(&ink_e2e::bob(), bid_query, 0, None)
+                .call(&ink_e2e::alice(), bid_query, 0, None)
                 .await
                 .expect("get failed");
 
-            let res = bid_query_res.return_value();
-            // let _ = bid_res.return_value().unwrap();
-            // let expected_bid = Bid {
-            //     auction_id: auction_acct_id,
-            //     bidder: ink_env::alice().account_id
-            // };
+            let res = bid_query_res.return_value().expect("should exist");
             assert!(matches!(res.len(), 1));
-            // assert!(matches!(bids[0], expected_bid));
             Ok(())
         }
     }
