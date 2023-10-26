@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 use etf_chain_extension::ext::EtfEnvironment;
 
+
 #[ink::contract(env = EtfEnvironment)]
 mod tlock_proxy {
     use crate::EtfEnvironment;
@@ -91,6 +92,10 @@ mod tlock_proxy {
         /// The TlockAuction contract code hash
         auction_contract_code_hash: Hash,
     }
+
+    /// A proposal has been accepted
+    #[ink(event)]
+    pub struct Success { }
 
     impl TlockProxy {
         /// Constructor
