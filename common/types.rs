@@ -19,13 +19,13 @@ pub type SlotNumber = u64;
 )]
 pub struct TlockMessage {
     /// the ciphertext
-    ciphertext: Vec<u8>,
+    pub ciphertext: Vec<u8>,
     /// a 12-byte nonce
-    nonce: Vec<u8>,
+    pub nonce: Vec<u8>,
     /// the ibe ciphertext
-    capsule: Vec<u8>, // a single ibe ciphertext is expected
+    pub capsule: Vec<u8>, // a single ibe ciphertext is expected
     // a timelock commitment
-    commitment: Vec<u8>,
+    pub commitment: Vec<u8>,
 }
 
 /// represents a new event in the game
@@ -36,10 +36,10 @@ pub struct TlockMessage {
 )]
 pub struct GameEvent {
     /// a name to associate with this event
-    name: Option<[u8;32]>,
+    pub name: Option<[u8;32]>,
     /// the slot in etf consensus when the event happens
-    slot: SlotNumber,
+    pub slot: SlotNumber,
     /// extra data that can be revealed at this slot
     /// as part of an in-game event
-    data: Vec<TlockMessage>,
+    pub data: Vec<TlockMessage>,
 }
