@@ -1,5 +1,5 @@
 [package]
-name = "etf-chain-extension"
+name = "etf-contract-utils"
 version = "0.1.0"
 authors = ["Tony Riemer <driemworks@idealabs.network>"]
 edition = "2021"
