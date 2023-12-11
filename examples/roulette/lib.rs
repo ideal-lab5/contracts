@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 use ink::prelude::vec::Vec;
-use etf_chain_extension::ext::EtfEnvironment;
+use etf_contract_utils::ext::EtfEnvironment;
 
 #[ink::contract(env = EtfEnvironment)]
 mod roulette {

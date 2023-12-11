@@ -43,3 +43,14 @@ pub struct GameEvent {
     /// as part of an in-game event
     pub data: Vec<TlockMessage>,
 }
+
+#[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
+#[cfg_attr(
+    feature = "std",
+    derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+)]
+pub struct DecryptedData<AccountId, T> {
+    pub address: AccountId,
+    pub data: T,
+    pub msk: [u8;32]
+}

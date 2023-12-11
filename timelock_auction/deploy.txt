@@ -11,3 +11,11 @@ cargo contract instantiate tlock_proxy/tlock_proxy.contract --constructor new --
 here, the args are: [Alice Address -> but you can change this if desired] [auction_contract_code_hash] [erc721_code_hash]
 
 4. Store the resulting contract address in the polkadotjs ui. In the output of the instantiate call, look for the Contracts -> instantiated event, the deployer is the proxy contract and the deployed contract is the erc721 (the proxy deploys the erc721 on init)"
+
+
+cargo contract upload ./target/ink/mine_clock/mine_clock.wasm --suri //Alice --url ws://127.0.0.1:9944 -x
+0x7d12288a19b26f35dc9f7cf43a000598fc7465fe1fdb34dac45adc456440c208
+
+cargo contract instantiate ./target/ink/block_defender/block_defender.contract --constructor new \
+--args 25 25 25 283705300 0x7d12288a19b26f35dc9f7cf43a000598fc7465fe1fdb34dac45adc456440c208 \
+--suri //Alice --url ws://127.0.0.1:9944 -x
