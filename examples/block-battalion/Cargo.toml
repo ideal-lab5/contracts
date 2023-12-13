@@ -3,5 +3,5 @@ resolver = "2"
 
 members = [
     "./blockbattalion",
-    "./clock/mine-clock",
+    "./clock/resource-clock",
 ]

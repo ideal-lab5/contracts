@@ -1,4 +1,4 @@
-# The Mine Game Event Clock
+# The Resource Game Event Clock
 
 This is the event clock for "mining" events in block defender. 
 It is a modified version of bit roulette where players win a round if the bit they issued matches the parity of the sum of all bits played.

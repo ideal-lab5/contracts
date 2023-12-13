@@ -4,16 +4,18 @@
 cargo contract upload erc721/erc721.wasm --suri //Alice --url wss://etf1.idealabs.network:443 -x
 cargo contract upload vickrey_auction/vickrey_auction.wasm --suri //Alice --url wss://etf1.idealabs.network:443 -x
 
+cargo contract upload tlock_proxy/tlock_proxy.wasm --suri //Alice --url wss://etf1.idealabs.network:443 -x
+
 3. using the resulting code hashes, instantiate the proxy contract (cargo contract takes care of upload the code here):
 
-cargo contract instantiate tlock_proxy/tlock_proxy.contract --constructor new --args 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY 0xaa2eaad2b47337ecf316be4d81d7b46d0edf57b4eb76d3ec514af1d0ba0870d4  0x9448581f7ac2a485a4f080c91227dc8369d80ca0a83a7e7d408e8ecd1fed3e04 --suri //Alice --url wss://etf1.idealabs.network:443 -x
+cargo contract instantiate tlock_proxy/tlock_proxy.contract --constructor new --args 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY 0xb7049b912a2ec569cd978e28f80fcaef5adcea82aeaef75f239070998bb066a9  0x92515aee425b64aca585a585dec8c73c54fd157b6563bc93d34fdd0942321c30 --suri //Alice --url wss://etf1.idealabs.network:443 -x
 
 here, the args are: [Alice Address -> but you can change this if desired] [auction_contract_code_hash] [erc721_code_hash]
 
 4. Store the resulting contract address in the polkadotjs ui. In the output of the instantiate call, look for the Contracts -> instantiated event, the deployer is the proxy contract and the deployed contract is the erc721 (the proxy deploys the erc721 on init)"
 
 
-cargo contract upload ./target/ink/mine_clock/mine_clock.wasm --suri //Alice --url ws://127.0.0.1:9944 -x
+cargo contract upload ./target/ink/mine_clock/mine_clock.wasm --suri //Alice --url wss://etf1.idealabs.network:443 -x
 0x7d12288a19b26f35dc9f7cf43a000598fc7465fe1fdb34dac45adc456440c208
 
 cargo contract instantiate ./target/ink/block_defender/block_defender.contract --constructor new \

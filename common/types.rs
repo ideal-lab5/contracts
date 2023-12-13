@@ -5,7 +5,7 @@ use ink::prelude::vec::Vec;
 
 /// the type to track successive rounds of the game
 /// e.g. {0, 1, 2, 3, ...}
-pub type RoundNumber = u8;
+pub type RoundNumber = u64;
 
 /// the type to track the slot number associated
 // with game events
@@ -53,4 +53,17 @@ pub struct DecryptedData<AccountId, T> {
     pub address: AccountId,
     pub data: T,
     pub msk: [u8;32]
+}
+
+/// the event config is for configuring game event clocks (contracts) from a game master contract
+#[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
+#[cfg_attr(
+    feature = "std",
+    derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+)]
+pub struct EventConfig {
+    /// the initial slot at which to start the event clock
+    pub initial_slot: SlotNumber,
+    /// the interval (in slots) between events
+    pub interval: SlotNumber,
 }

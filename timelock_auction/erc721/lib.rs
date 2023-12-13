@@ -56,7 +56,7 @@ pub use self::erc721::{
     Erc721Ref,
 };
 
-use etf_chain_extension::ext::EtfEnvironment;
+use etf_contract_utils::ext::EtfEnvironment;
 
 #[ink::contract(env = EtfEnvironment)]
 mod erc721 {

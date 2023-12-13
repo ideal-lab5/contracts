@@ -1,10 +1,13 @@
 [package]
-name = "block-defender"
+name = "block-battalion"
 version = "0.1.0"
 authors = ["Tony Riemer <driemworks@idealabs.network>"]
 edition = "2021"
 
 [dependencies]
+
+hashbrown = "0.14.3"
+
 ink = { version = "4.2.0", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
@@ -13,7 +16,7 @@ sha3 = { version = "0.10.8", default-features = false }
 etf-contract-utils = { path = "../../../common", default-features = false, features = ["ink-as-dependency"] }
 
 # local dependencies
-mine-clock = { path = "../clock/mine-clock", default-features = false, features = ["ink-as-dependency"] }
+resource-clock = { path = "../clock/resource-clock", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
@@ -31,7 +34,7 @@ std = [
     "scale-info/std",
     "sha3/std",
     "etf-contract-utils/std",
-    "mine-clock/std",
+    "resource-clock/std",
 ]
 ink-as-dependency = []
 e2e-tests = []
