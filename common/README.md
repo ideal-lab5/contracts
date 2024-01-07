@@ -1,8 +1,22 @@
-# ETF Network Environment
+# ETF Network Contract Toolkit
 
-This environment is configured to allow ink! smart contracts to call the chain extension exposed by the ETF network runtime.
+This is an ink! smart contract toolkit for building contracts on the ETF network. 
 
-## Configuration 
+With the ETF network, contracts...
+
+- have access to on-chain randomness to smart contracts
+- can easily implement non-interactive multiparty protocols
+- design contracts for use with **delayed transactions**
+
+## ETF Network Environment
+
+This environment is configured to allow ink! smart contracts to call the chain extension exposed by the ETF network runtime. This allows contracts to:
+- read slot secrets from the chain (stored in the etf-Aura pallet) and use its presence to make time-based decisions in your smart contracts
+- use the slot secrets as a source of randomness in smart contracts
+  
+  See the [bit-roulette](../examples/bit-roulette/) example for a demonstration.
+
+### Configuration 
 
 Add the dependency 
 ```
@@ -18,11 +32,15 @@ mod your_smart_contract {
 }
 ```
 
-
-## Usage
+### Chain Extension Usage
 
 ``` rust
 self.env()
     .extension()
-    .check_slot(deadline)
+    .secret(slot_number)
 ```
+
+### Testing with the chain extension
+
+To test functions that call the chain extension, it can be mocked with:
+

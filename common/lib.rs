@@ -3,3 +3,4 @@
 /// the ETF network chain extension
 pub mod ext;
 pub mod types;
+pub mod clock;

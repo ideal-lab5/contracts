@@ -1,5 +1,5 @@
 [package]
-name = "timelock-roulette"
+name = "bit-roulette"
 version = "0.1.0"
 authors = ["Tony Riemer <driemworks@idealabs.network>"]
 edition = "2021"
@@ -8,8 +8,7 @@ edition = "2021"
 ink = { version = "4.2.0", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
-sha3 = { version = "0.10.8", default-features = false }
-# etf-contract-utils = { version = "0.1.0", git = "https://github.com/ideal-lab5/contracts.git", default-features = false, features = ["ink-as-dependency"] }
+# etf-contract-utils = { git = "https://github.com/ideal-lab5/contracts.git", branch = "main", default-features = false, features = ["ink-as-dependency"] }
 etf-contract-utils = { path = "../../common", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
@@ -26,7 +25,6 @@ std = [
     "ink/std",
     "scale/std",
     "scale-info/std",
-    "sha3/std",
     "etf-contract-utils/std",
 ]
 ink-as-dependency = []

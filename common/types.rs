@@ -64,6 +64,8 @@ pub struct DecryptedData<AccountId, T> {
 pub struct EventConfig {
     /// the initial slot at which to start the event clock
     pub initial_slot: SlotNumber,
+    // /// the initial block at which to start the event clock (redundant?)
+    // pub initial_block: BlockNumber,
     /// the interval (in slots) between events
     pub interval: SlotNumber,
 }

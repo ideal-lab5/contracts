@@ -4,16 +4,16 @@ use ink_env::Environment;
 #[ink::chain_extension]
 pub trait ETF {
     type ErrorCode = EtfErrorCode;
-    /// check if a block has been authored in the slot
+    /// fetch the IBE secret key leaked int he slot
     #[ink(extension = 1101, handle_status = false)]
-    fn check_slot(slot_id: u64) -> bool;
+    fn secret(slot_id: u64) -> [u8;48];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum EtfErrorCode {
-    /// the chain ext could not check for a block in the specified slot
-    FailCheckSlot,
+    /// the provided slot has no corresponding secret
+    InvalidSlot,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -39,7 +39,7 @@ impl ink_env::chain_extension::FromStatusCode for EtfErrorCode {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
             0 => Ok(()),
-            1101 => Err(Self::FailCheckSlot),
+            1101 => Err(Self::InvalidSlot),
             _ => panic!("encountered unknown status code"),
         }
     }
