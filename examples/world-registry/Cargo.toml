@@ -1,20 +1,20 @@
 [package]
-name = "bit-roulette"
+name = "world-registry"
 version = "0.1.0"
-authors = ["Tony Riemer <driemworks@idealabs.network>"]
+authors = ["[your_name] <[your_email]>"]
 edition = "2021"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }
+
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
-# etf-contract-utils = { git = "https://github.com/ideal-lab5/contracts.git", branch = "main", default-features = false, features = ["ink-as-dependency"] }
-etf-contract-utils = { path = "../../src", default-features = false, features = ["ink-as-dependency"] }
+# etf-contract-utils = { git = "https://github.com/ideal-lab5/contracts.git", default-features = false, features = ["ink-as-dependency"] }
+etf-contract-utils = { path = "../../src/", default-features = false, features = ["ink-as-dependency"] }
+# noise = { version = "0.8.2", features = ["images"], default-features = false}
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
-ink_env = { version = "4", default-features = false }
-rand_chacha = { version = "0.3.1", default-features = false }
 
 [lib]
 path = "lib.rs"
@@ -26,6 +26,7 @@ std = [
     "scale/std",
     "scale-info/std",
     "etf-contract-utils/std",
+    # "noise/std",
 ]
 ink-as-dependency = []
 e2e-tests = []

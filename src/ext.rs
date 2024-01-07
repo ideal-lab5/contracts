@@ -6,7 +6,7 @@ pub trait ETF {
     type ErrorCode = EtfErrorCode;
     /// fetch the IBE secret key leaked int he slot
     #[ink(extension = 1101, handle_status = false)]
-    fn secret(slot_id: u64) -> [u8;48];
+    fn secret(slot_id: Option<u64>) -> [u8;48];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
