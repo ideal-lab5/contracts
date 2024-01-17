@@ -8,14 +8,14 @@ mod transmutation {
     use crate::EtfEnvironment;
 
     use ink::prelude::vec::Vec;
-    use ink::storage::{Mapping, traits::{AutoKey, ManualKey, ResolverKey}};
+    use ink::storage::Mapping;
     use rs_merkle::{
         algorithms::Sha256,
         Hasher,
         MerkleTree,
     };
 
-    /// a dummy type to represent an asset (could be an ERC721 id in a non-demo version)
+    /// a dummy type to represent an asset
     pub type OpaqueAssetId = Vec<u8>;
 
     /// represents a swap between two participants
@@ -25,9 +25,7 @@ mod transmutation {
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub struct Swap {
-        asset_owner_one: AccountId,
         asset_id_one: OpaqueAssetId,
-        asset_owner_two: AccountId,
         asset_id_two: OpaqueAssetId,
         /// the deadline when the swap must complete
         deadline: BlockNumber,
@@ -44,6 +42,8 @@ mod transmutation {
         SwapDNE,
         DuplicateSeed,
         InvalidSwap,
+        NoOwnedAsset,
+        NoSuchAsset,
     }
 
     #[ink(storage)]
@@ -61,7 +61,8 @@ mod transmutation {
         /// a mapping of all swaps
         /// any pair of accounts can only have one active swap
         swaps: Mapping<Hash, Swap>,
-        test: u8,
+        /// a map between account and swaps they can participate in
+        pending_swaps: Mapping<AccountId, Hash>,
     }
 
 
@@ -74,7 +75,7 @@ mod transmutation {
                 asset_status: Mapping::new(),
                 claimed_assets: Vec::new(),
                 swaps: Mapping::new(),
-                test: 0
+                pending_swaps: Mapping::new(),
             }
         }
 
@@ -83,44 +84,25 @@ mod transmutation {
             Self::new()
         }
 
-        #[ink(message)]
-        pub fn get_test(&self) -> u8 {
-            self.test
-        }
-
         /// generates a random seed
         #[ink(message)]
         pub fn random_seed(
             &mut self,
-            // input_seed: [u8;48],
+            input_seed: [u8;48],
         ) -> Result<(), Error> {
             let caller = self.env().caller();
-            let seed = self.env().extension().secret();
-            //  {
-            //     // self.asset_status.insert()
-            //     // self.asset_registry.insert(seed.to_vec(), &caller);
-            //     self.test = 10;
-            //     return Ok(());
-            // } else {
-            //     self.test = 9;
-            // }
+            let mut seed = self.env().extension().secret();
             
+            seed.clone().iter().enumerate().for_each(|(i, bit)| {
+                seed[i] = *bit ^ input_seed[i];
+            });
 
-            // get the latest slot secret as a source of randomness
-            // let seed = self.env()
-            //     .extension()
-            //     .secret();
-            
-            // seed.clone().iter().enumerate().for_each(|(i, bit)| {
-            //     seed[i] = *bit ^ input_seed[i];
-            // });
+            if self.claimed_assets.contains(&seed.to_vec()) {
+                return Err(Error::DuplicateSeed);
+            }
 
-            // if self.claimed_assets.contains(&seed.to_vec()) {
-            //     return Err(Error::DuplicateSeed);
-            // }
-
-            // self.asset_registry.insert(seed.to_vec(), &caller);
-            // self.claimed_assets.push(seed.to_vec());
+            self.asset_registry.insert(seed.to_vec(), &caller);
+            self.claimed_assets.push(seed.to_vec());
 
             Ok(())
         }
@@ -131,17 +113,34 @@ mod transmutation {
         }
 
         #[ink(message)]
-        pub fn registry_lookup(&self) -> Option<OpaqueAssetId> {
+        pub fn get_owner(&self, asset_id: OpaqueAssetId) -> Option<AccountId> {
+            self.asset_registry.get(asset_id)
+        }
+
+        #[ink(message)]
+        pub fn registry_lookup(&self, who: AccountId) -> Option<OpaqueAssetId> {
             if let Some(found_seed) = self.claimed_assets.iter().find(|seed| {
                 self.asset_registry
                     .get(seed)
-                    .map_or(false, |registry_entry| registry_entry.eq(&self.env().caller()))
+                    .map_or(false, |registry_entry| registry_entry.eq(&who))
             }) {
                 return Some(found_seed.clone());
             }
             None
         }
         
+        #[ink(message)]
+        pub fn get_claimed_assets(&self) -> Vec<OpaqueAssetId> {
+            self.claimed_assets.clone()
+        }
+
+        #[ink(message)]
+        pub fn get_pending_swap(&self) -> Option<Swap> {
+            if let Some(hash) = self.pending_swaps.get(self.env().caller()) {
+                return self.swaps.get(hash);
+            }
+            None
+        }
 
         /// get all opens swaps the participant is associated with
         #[ink(message)]
@@ -159,45 +158,74 @@ mod transmutation {
 
         /// create a new swap 
         #[ink(message)]
-        pub fn new_swap(
+        pub fn try_new_swap( 
             &mut self,
-            source_asset_id: OpaqueAssetId,
-            target_account_id: AccountId,
-            target_asset_id: OpaqueAssetId,
+            who: AccountId,
             deadline: BlockNumber,
         ) -> Result<(), Error> {
             let caller = self.env().caller();
-            let merkle_root = Self::calculate_merkle_root(caller, target_account_id)?;
-            let swap = Swap {
-                asset_owner_one: caller,
-                asset_id_one: source_asset_id,
-                asset_owner_two: target_account_id,
-                asset_id_two: target_asset_id,
-                deadline,
-            };
-            self.swaps.insert(Hash::from(merkle_root), &swap);
+            // make sure caller has an asset
+            if let Some(source_asset_id) = self.registry_lookup(caller.clone()) {
+                // and neither asset is part of a pending swap
+                if let None = self.pending_swaps.get(caller.clone()) {
+                    if let None = self.pending_swaps.get(who.clone()) {
+                        // get the owner of the target asset id
+                        if let Some(target_asset_id) = self.registry_lookup(who.clone()) {
+                            let merkle_root = Self::calculate_merkle_root(caller, who.clone())?;
+                            let swap = Swap {
+                                asset_id_one: source_asset_id,
+                                asset_id_two: target_asset_id,
+                                deadline,
+                            };
+                            let hash = Hash::from(merkle_root);
+                            self.swaps.insert(hash, &swap);
+                            self.pending_swaps.insert(caller, &hash);
+                            self.pending_swaps.insert(who, &hash);
+                        } else {
+                            return Err(Error::NoSuchAsset);
+                        }
+                    }
+                }
+            } else {
+                return Err(Error::NoOwnedAsset);
+            }
+            
             Ok(())
+        }
+
+        /// if part of a pending swap, reject it 
+        /// this is needed since each participant can have only one pending swap at a time
+        #[ink(message)]
+        pub fn reject_swap(&mut self) -> Result<(), Error> {
+            
+            if let Some(_root) = self.pending_swaps.take(self.env().caller()) {
+                return Ok(());
+            }
+
+            Err(Error::InvalidSwap)
+            
         }
 
         /// transfers ownership of the asset to the contract at the swap deadline only
         #[ink(message)]
-        pub fn transmute(&mut self, to: AccountId) -> Result<(), Error> {
+        pub fn transmute(&mut self) -> Result<(), Error> {
             let caller = self.env().caller();
-            let contract = self.env().account_id();
-            let merkle_root = Self::calculate_merkle_root(caller, to)?;
-            if let Some(swap) = self.swaps.get(merkle_root)  {
 
-                let current_block = self.env().block_number();
-                if !swap.deadline.eq(&current_block) {
-                    return Err(Error::InvalidBlockNumber);
-                }
+            if let Some(merkle_root) = self.pending_swaps.get(caller) {
+                if let Some(swap) = self.swaps.get(merkle_root)  {
+                    // transmutation must occur simultaneously
+                    let current_block = self.env().block_number();
+                    if !swap.deadline.eq(&current_block) {
+                        return Err(Error::InvalidBlockNumber);
+                    }
 
-                if let Some(asset_owner_one) = 
-                    self.asset_registry.get(swap.asset_id_one.clone()) {
-                    if asset_owner_one.eq(&caller) {
-                        self.asset_status.insert(swap.asset_id_one, &merkle_root);
-                    } else {
-                        self.asset_status.insert(swap.asset_id_two, &merkle_root);
+                    if let Some(asset_owner_one) = 
+                        self.asset_registry.get(swap.asset_id_one.clone()) {
+                        if asset_owner_one.eq(&caller) {
+                            self.asset_status.insert(swap.asset_id_one, &merkle_root);
+                        } else {
+                            self.asset_status.insert(swap.asset_id_two, &merkle_root);
+                        }
                     }
                 }
             }
@@ -213,7 +241,7 @@ mod transmutation {
                 if swap.deadline > current_block {
                     return Err(Error::InvalidBlockNumber);
                 }
-                // both assets  must be locked
+                // both assets  must be locked (r1 and r2 are merkle roots)
                 if let Some(r1) = self.asset_status.get(swap.asset_id_one.clone()) {
                     if let Some(r2) = self.asset_status.get(swap.asset_id_two.clone()) {
                         if !r1.eq(&swap_id) || !r2.eq(&swap_id) {
@@ -222,8 +250,16 @@ mod transmutation {
                     }   
                 }
                 // execute the swap
-                self.asset_registry.insert(swap.asset_id_one, &swap.asset_owner_two);
-                self.asset_registry.insert(swap.asset_id_two, &swap.asset_owner_one);
+                if let Some(asset_owner_one) = self.asset_registry.get(swap.asset_id_one.clone()) {
+                    if let Some(asset_owner_two) = self.asset_registry.get(swap.asset_id_two.clone()) {
+                        self.asset_registry.insert(swap.asset_id_one.clone(), &asset_owner_two);
+                        self.asset_registry.insert(swap.asset_id_two.clone(), &asset_owner_one);
+                        self.pending_swaps.remove(asset_owner_one);
+                        self.pending_swaps.remove(asset_owner_two);
+                        self.asset_status.remove(swap.asset_id_one);
+                        self.asset_status.remove(swap.asset_id_two);
+                    }
+                }
             }
 
             Ok(())
