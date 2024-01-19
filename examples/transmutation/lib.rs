@@ -108,6 +108,20 @@ mod transmutation {
         }
 
         #[ink(message)]
+        pub fn destroy_seed(&mut self) -> Result<(), Error> {
+            let caller = self.env().caller();
+
+            if let Some(asset) = self.registry_lookup(caller) {
+                self.asset_registry.remove(asset.clone());
+                self.asset_status.remove(asset.clone());
+                self.pending_swaps.remove(caller.clone());
+                return Ok(());
+            }
+            
+            Err(Error::NoOwnedAsset)
+        }
+
+        #[ink(message)]
         pub fn get_asset_swap(&self, asset_id: OpaqueAssetId) -> Option<Hash> {
             self.asset_status.get(asset_id)
         }
