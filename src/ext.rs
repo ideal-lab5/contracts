@@ -4,9 +4,9 @@ use ink_env::Environment;
 #[ink::chain_extension]
 pub trait ETF {
     type ErrorCode = EtfErrorCode;
-    /// fetch the IBE secret key leaked int he slot
+
     #[ink(extension = 1101, handle_status = false)]
-    fn secret(slot_id: Option<u64>) -> [u8;48];
+    fn secret() -> [u8;48];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -19,7 +19,7 @@ pub enum EtfErrorCode {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum EtfError {
-  ErrorCode(EtfErrorCode),
+  ErrorCode(EtfErrorCode), 
   BufferTooSmall { required_bytes: u32 },
 }
 
