@@ -94,7 +94,7 @@ mod tlock_proxy {
 
     /// A proposal has been accepted
     #[ink(event)]
-    pub struct Success { }
+    pub struct Success {}
 
     impl TlockProxy {
         /// Constructor
@@ -200,21 +200,14 @@ mod tlock_proxy {
 
         /// complete the auction
         #[ink(message)]
-        pub fn complete(
-            &mut self,
-            auction_id: AccountId,
-            revealed_bids: Vec<vickrey_auction::RevealedBid<AccountId>>,
-        ) -> Result<()> {
+        pub fn complete(&mut self, auction_id: AccountId) -> Result<()> {
             let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
             // check deadline
             if self.is_deadline_future(auction_data.0.deadline) {
                 return Err(Error::AuctionInProgress);
             }
 
-            auction_data
-                .1
-                .complete(revealed_bids)
-                .map_err(|_| Error::Other)?;
+            auction_data.1.complete().map_err(|_| Error::Other)?;
             let mut new_auction_data = auction_data.0.clone();
             new_auction_data.status = 1;
             self.auctions[auction_data.2] = new_auction_data;
@@ -348,7 +341,8 @@ mod tlock_proxy {
         /// check if the deadline has already passed
         /// returns true if a block is present at the slot, false otherwise
         fn is_deadline_future(&self, deadline: u64) -> bool {
-            self.env().extension().check_slot(deadline)
+            let current_block: u32 = self.env().block_number();
+            (current_block as u64) < deadline
         }
 
         /// fetch an child auction by its account id
@@ -423,10 +417,13 @@ mod tlock_proxy {
                 .await
                 .expect("get failed");
 
-            assert!(matches!(get_auctions_res.return_value()
-                .expect("should be empty")
-                .is_empty(), 
-                true));
+            assert!(matches!(
+                get_auctions_res
+                    .return_value()
+                    .expect("should be empty")
+                    .is_empty(),
+                true
+            ));
             Ok(())
         }
 
@@ -499,8 +496,13 @@ mod tlock_proxy {
                 bids: 0,
                 published: 0,
             };
-            assert!(matches!(get_auctions_res.return_value()
-                .expect("should be non-empty").len(), 1));
+            assert!(matches!(
+                get_auctions_res
+                    .return_value()
+                    .expect("should be non-empty")
+                    .len(),
+                1
+            ));
             assert!(matches!(
                 get_auction_by_id_res.return_value().expect("should be ok"),
                 expected_auction_details
@@ -563,13 +565,14 @@ mod tlock_proxy {
                 .expect("failed");
 
             assert!(matches!(bid_res.return_value(), Ok(())));
-    
-            let acct_bytes: [u8;32] = *ink_e2e::alice().public_key().to_account_id().as_ref();
+
+            let acct_bytes: [u8; 32] = *ink_e2e::alice().public_key().to_account_id().as_ref();
             let acct_id = AccountId::from(acct_bytes);
             let bid_query =
                 ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
-                ).call(|proxy| proxy.get_auctions_by_bidder(acct_id));
+                )
+                .call(|proxy| proxy.get_auctions_by_bidder(acct_id));
 
             let bid_query_res = client
                 .call(&ink_e2e::alice(), bid_query, 0, None)

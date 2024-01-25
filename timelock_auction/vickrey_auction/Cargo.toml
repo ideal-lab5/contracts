@@ -10,7 +10,7 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 sha3 = { version = "0.10.8", default-features = false }
 # etf-contract-utils = { version = "0.1.0", git = "https://github.com/ideal-lab5/contracts.git", default-features = false, features = ["ink-as-dependency"] }
-etf-contract-utils = { path = "../../common", default-features = false, features = ["ink-as-dependency"] }
+etf-contract-utils = { path = "../../src", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
