@@ -1,14 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 pub use self::vickrey_auction::{VickreyAuction, VickreyAuctionRef};
 use ink::prelude::vec::Vec;
-
-/// a proposal represents a timelocked bid
-#[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
-#[cfg_attr(
-    feature = "std",
-    derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-)]
-
 /// The result of an auction
 #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
 #[cfg_attr(
