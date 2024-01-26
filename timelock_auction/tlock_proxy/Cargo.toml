@@ -9,6 +9,7 @@ ink = { version = "4.2.0", default-features = false }
 ink_env = { version = "4", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
+sha3 = { version = "0.10.8", default-features = false }
 # local dependencies
 vickrey_auction = { path = "../vickrey_auction", default-features = false, features = ["ink-as-dependency"] }
 erc721 = { path = "../erc721", default-features = false, features = ["ink-as-dependency"] }
@@ -31,6 +32,7 @@ std = [
     "vickrey_auction/std",
     "erc721/std",
     "etf-contract-utils/std",
+    "sha3/std",
 ]
 ink-as-dependency = []
 e2e-tests = []
