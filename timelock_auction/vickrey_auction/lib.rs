@@ -8,16 +8,6 @@ use ink::prelude::vec::Vec;
     feature = "std",
     derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
 )]
-pub struct Proposal {
-    /// the ciphertext
-    ciphertext: Vec<u8>,
-    /// a 12-byte nonce
-    nonce: Vec<u8>,
-    /// the ibe ciphertext
-    capsule: Vec<u8>, // a single ibe ciphertext is expected
-    /// a sha256 hash of the bid amount
-    commitment: Vec<u8>,
-}
 
 /// The result of an auction
 #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
@@ -47,7 +37,7 @@ use etf_contract_utils::ext::EtfEnvironment;
 
 #[ink::contract(env = EtfEnvironment)]
 mod vickrey_auction {
-    use crate::{AuctionResult, EtfEnvironment, Proposal, RevealedBid, Vec};
+    use crate::{AuctionResult, EtfEnvironment, RevealedBid, Vec};
     use ink::storage::Mapping;
     use scale::alloc::string::ToString;
     use sha3::Digest;
@@ -61,6 +51,7 @@ mod vickrey_auction {
         /// the origin must match the configured proxy
         NotProxy,
         WaitingReveals,
+        NotParticipant,
     }
 
     /// the auction storage
@@ -70,10 +61,6 @@ mod vickrey_auction {
         proxy: AccountId,
         /// the item being auctioned
         asset_id: AssetId,
-        /// a collection of proposals, one proposal per participant
-        proposals: Mapping<AccountId, Proposal>,
-        /// a collection of proposals marked invalid post-auction
-        failed_proposals: Mapping<AccountId, Proposal>,
         /// ink mapping has no support for iteration so we need to loop over this vec to read through the proposals
         /// but maybe could do a struct instead? (acctid, vec, vec, vec)
         participants: Vec<AccountId>,
@@ -100,16 +87,12 @@ mod vickrey_auction {
         /// Constructor that initializes a new auction
         #[ink(constructor)]
         pub fn new(proxy: AccountId, asset_id: u32) -> Self {
-            let proposals = Mapping::default();
-            let failed_proposals = Mapping::default();
             let participants: Vec<AccountId> = Vec::new();
             let revealed_bids: Vec<RevealedBid<AccountId>> = Vec::new();
 
             Self {
                 proxy,
                 asset_id,
-                proposals,
-                failed_proposals,
                 participants,
                 winner: None,
                 revealed_bids,
@@ -132,18 +115,6 @@ mod vickrey_auction {
             self.winner.clone()
         }
 
-        /// get proposals
-        #[ink(message)]
-        pub fn get_proposal(&self, who: AccountId) -> Option<Proposal> {
-            self.proposals.get(who).clone()
-        }
-
-        /// get proposals
-        #[ink(message)]
-        pub fn get_failed_proposals(&self, who: AccountId) -> Option<Proposal> {
-            self.failed_proposals.get(who).clone()
-        }
-
         /// get participants
         #[ink(message)]
         pub fn get_participants(&self) -> Vec<AccountId> {
@@ -159,19 +130,12 @@ mod vickrey_auction {
         /// add a proposal to an active auction during the bidding phase
         /// a proposal is a signed, timelocked bid
         ///
-        /// * `ciphertext`: The aes ciphertext
-        /// * `nonce`: The aes nonce
-        /// * `capsule`: The etf capsule
-        /// * `commitment`: A commitment to the bid (sha256)
+        /// * `bidder`: the account bidding
         ///
         #[ink(message)]
         pub fn bid(
             &mut self,
             bidder: AccountId,
-            ciphertext: Vec<u8>,
-            nonce: Vec<u8>,
-            capsule: Vec<u8>, // single IbeCiphertext, capsule = Vec<IbeCiphertext>
-            commitment: Vec<u8>,
         ) -> Result<(), Error> {
             let who = self.env().caller();
             if who != self.proxy {
@@ -182,22 +146,13 @@ mod vickrey_auction {
                 self.participants.push(bidder);
             }
 
-            self.proposals.insert(
-                bidder,
-                &Proposal {
-                    ciphertext,
-                    nonce,
-                    capsule,
-                    commitment,
-                },
-            );
             Self::env().emit_event(BidSuccess {});
             Ok(())
         }
 
         /// Takes de incoming reveled bid and saves it in the revealed_bids array
         ///
-        /// * `revealed_bids`: A collection of (participant, revealed_bid_amount)
+        /// * `revealed_bid`: the revealed bid
         ///
         #[ink(message)]
         pub fn save_revealed_bid(
@@ -207,6 +162,9 @@ mod vickrey_auction {
             let who = self.env().caller();
             if who != self.proxy {
                 return Err(Error::NotProxy);
+            }
+            if !self.participants.contains(&revealed_bid.bidder.clone()) {
+                return Err(Error::NotParticipant);
             }
             self.revealed_bids.push(RevealedBid {
                 bidder: revealed_bid.bidder,
@@ -253,31 +211,19 @@ mod vickrey_auction {
         fn bid_success() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             let mut auction = VickreyAuction::new(accounts.alice, 1u32);
-            let res = auction.bid(accounts.alice, vec![1], vec![2], vec![3], vec![4]);
+            let res = auction.bid(accounts.alice);
             assert!(!res.is_err());
 
             let participants = auction.participants;
             assert_eq!(participants.clone().len(), 1);
-            let expected_proposal = Proposal {
-                ciphertext: vec![1],
-                nonce: vec![2],
-                capsule: vec![3],
-                commitment: vec![4],
-            };
-            assert_eq!(
-                auction.proposals.get(participants[0]),
-                Some(expected_proposal)
-            );
         }
 
         #[ink::test]
         fn bid_fails_when_not_proxy() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             let mut auction = VickreyAuction::new(accounts.alice, 1u32);
-
             ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-
-            let res = auction.bid(accounts.alice, vec![1], vec![2], vec![3], vec![4]);
+            let res = auction.bid(accounts.alice);
             assert!(res.is_err());
             assert_eq!(res, Err(Error::NotProxy));
         }
@@ -287,20 +233,16 @@ mod vickrey_auction {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             let mut auction = VickreyAuction::new(accounts.alice, 1u32);
 
-            let b = 4;
-            let mut hasher = sha3::Sha3_256::new();
-            let bid_bytes = b.to_string();
-            hasher.update(bid_bytes.clone());
-            let hash = hasher.finalize().to_vec();
-            let res = auction.bid(accounts.alice, vec![1], vec![2], vec![3], hash);
+            let res = auction.bid(accounts.alice);
             assert!(!res.is_err());
-            let revealed_bids = vec![RevealedBid {
+            let revealedBid = RevealedBid {
                 bidder: accounts.alice,
                 bid: 4,
-            }];
-            let res = auction.complete(revealed_bids.clone());
+            };
+            let res = auction.save_revealed_bid(revealedBid.clone());
+            assert_eq!(auction.revealed_bids[0], revealedBid);
+            let res = auction.complete();
             assert!(!res.is_err());
-            assert_eq!(auction.revealed_bids[0], revealed_bids[0]);
             assert_eq!(
                 auction.winner,
                 Some(AuctionResult {
@@ -314,23 +256,12 @@ mod vickrey_auction {
         fn complete_auction_success_many_participants_all_valid() {
             let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
             let mut auction = VickreyAuction::new(accounts.alice, 1u32);
-
-            let b1 = 4;
-            let b1_hash = sha256(b1);
-
-            let b2 = 6;
-            let b2_hash = sha256(b2);
-
-            let b3 = 1;
-            let b3_hash = sha256(b3);
-
             // ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.alice);
-            let _ = auction.bid(accounts.alice, vec![1], vec![2], vec![3], b1_hash);
+            let _ = auction.bid(accounts.alice);
             // ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            let _ = auction.bid(accounts.bob, vec![1], vec![2], vec![3], b2_hash);
+            let _ = auction.bid(accounts.bob);
             // ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.charlie);
-            let _ = auction.bid(accounts.charlie, vec![1], vec![2], vec![3], b3_hash);
-
+            let _ = auction.bid(accounts.charlie);
             let revealed_bids = vec![
                 RevealedBid {
                     bidder: accounts.alice,
@@ -345,75 +276,15 @@ mod vickrey_auction {
                     bid: b3,
                 },
             ];
-            let res = auction.complete(revealed_bids.clone());
-
+            foreach(revealed_bids, |bid| {
+                let res = auction.save_revealed_bid(bid.clone());
+                assert!(!res.is_err());
+            });
+            let res = auction.complete();
             assert!(!res.is_err());
             assert_eq!(auction.revealed_bids[0], revealed_bids[0].clone());
             assert_eq!(auction.revealed_bids[1], revealed_bids[1].clone());
             assert_eq!(auction.revealed_bids[2], revealed_bids[2]);
-            // bob placed the highest bid and pays alice's bid
-            assert_eq!(
-                auction.winner,
-                Some(AuctionResult {
-                    winner: accounts.bob,
-                    debt: b1
-                })
-            )
-        }
-
-        #[ink::test]
-        fn complete_auction_success_many_participants_some_valid() {
-            let accounts = ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-            let mut auction = VickreyAuction::new(accounts.alice, 1u32);
-
-            let b1 = 4;
-            let b1_hash = sha256(b1);
-
-            let b2 = 6;
-            let b2_hash = sha256(b2);
-
-            let b3 = 1;
-            let b3_hash = sha256(b3);
-
-            let expected_failed_proposal = Proposal {
-                ciphertext: vec![1],
-                nonce: vec![2],
-                capsule: vec![3],
-                commitment: b3_hash.clone(),
-            };
-
-            // ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.alice);
-            let _ = auction.bid(accounts.alice, vec![1], vec![2], vec![3], b1_hash);
-            // ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            let _ = auction.bid(accounts.bob, vec![1], vec![2], vec![3], b2_hash);
-            // ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.charlie);
-            let _ = auction.bid(accounts.charlie, vec![1], vec![2], vec![3], b3_hash);
-
-            let revealed_bids = vec![
-                RevealedBid {
-                    bidder: accounts.alice,
-                    bid: b1,
-                },
-                RevealedBid {
-                    bidder: accounts.bob,
-                    bid: b2,
-                },
-                RevealedBid {
-                    bidder: accounts.charlie,
-                    bid: b2,
-                },
-            ];
-            let res = auction.complete(revealed_bids.clone());
-
-            assert!(!res.is_err());
-            assert_eq!(auction.revealed_bids[0], revealed_bids[0].clone());
-            assert_eq!(auction.revealed_bids[1], revealed_bids[1]);
-
-            // assert_eq!(auction.failed_proposals.get[2], revealed_bids[2]);
-            assert_eq!(
-                auction.failed_proposals.get(accounts.charlie),
-                Some(expected_failed_proposal)
-            );
             // bob placed the highest bid and pays alice's bid
             assert_eq!(
                 auction.winner,

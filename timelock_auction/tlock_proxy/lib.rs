@@ -7,7 +7,7 @@ mod tlock_proxy {
     use erc721::Erc721Ref;
     use ink::prelude::vec::Vec;
     use ink::ToAccountId;
-    use vickrey_auction::VickreyAuctionRef;
+    use vickrey_auction::{RevealedBid, VickreyAuctionRef};
 
     /// A custom type for storing auction's details
     #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
@@ -164,10 +164,6 @@ mod tlock_proxy {
         pub fn bid(
             &mut self,
             auction_id: AccountId,
-            ciphertext: Vec<u8>,
-            nonce: Vec<u8>,
-            capsule: Vec<u8>,
-            commitment: Vec<u8>,
         ) -> Result<()> {
             let caller = self.env().caller();
             let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
@@ -182,7 +178,7 @@ mod tlock_proxy {
 
             auction_data
                 .1
-                .bid(caller, ciphertext, nonce, capsule, commitment)
+                .bid(caller)
                 .map(|_| {
                     // update the number of bids
                     let mut new_auction_data = auction_data.0.clone();
@@ -252,20 +248,20 @@ mod tlock_proxy {
             Ok(())
         }
 
+        // Reveals a single bid
         #[ink(message)]
-        pub fn get_encrypted_bids(
-            &self,
+        pub fn reveal_bid(
+            &mut self,
             auction_id: AccountId,
-        ) -> Result<Vec<(AccountId, vickrey_auction::Proposal)>> {
-            let auction_data = self.get_auction_by_auction_id(auction_id)?;
-            let participants = auction_data.1.get_participants();
-            let bids = participants
-                .iter()
-                .map(|p| (p, auction_data.1.get_proposal(*p)))
-                .filter(|x| x.1.is_some())
-                .map(|x| (*x.0, x.1.unwrap()))
-                .collect::<Vec<_>>();
-            Ok(bids)
+            revealed_bid: RevealedBid<AccountId>,
+        ) -> Result<()> {
+            let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
+            // check deadline
+            if self.is_deadline_future(auction_data.0.deadline) {
+                return Err(Error::AuctionInProgress);
+            }
+            auction_data.1.save_revealed_bid(revealed_bid).map_err(|_| Error::Other)?;
+            Ok(())
         }
 
         /// get the winner and payment owed
@@ -557,7 +553,7 @@ mod tlock_proxy {
                 ink_e2e::MessageBuilder::<crate::EtfEnvironment, TlockProxyRef>::from_account_id(
                     contract_account_id,
                 )
-                .call(|p| p.bid(auction_acct_id, vec![1u8], vec![2u8], vec![3u8], vec![4u8]));
+                .call(|p| p.bid(auction_acct_id));
 
             let bid_res = client
                 .call(&ink_e2e::alice(), bid_call, 1, None)
