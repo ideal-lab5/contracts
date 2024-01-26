@@ -21,3 +21,6 @@ cargo contract upload ./target/ink/mine_clock/mine_clock.wasm --suri //Alice --u
 cargo contract instantiate ./target/ink/block_defender/block_defender.contract --constructor new \
 --args 25 25 25 283705300 0x7d12288a19b26f35dc9f7cf43a000598fc7465fe1fdb34dac45adc456440c208 \
 --suri //Alice --url ws://127.0.0.1:9944 -x
+
+
+cargo contract instantiate ./target/ink/transmutation.contract --constructor new --suri //Alice --url ws://127.0.0.1:9944 -x

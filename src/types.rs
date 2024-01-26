@@ -1,4 +1,3 @@
-#![cfg_attr(not(feature = "std"), no_std, no_main)]
 use ink::prelude::vec::Vec;
 
 // common types used in contracts
