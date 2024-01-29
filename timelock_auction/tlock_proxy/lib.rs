@@ -9,6 +9,8 @@ mod tlock_proxy {
     use ink::ToAccountId;
     use vickrey_auction::{RevealedBid, VickreyAuctionRef};
 
+    use sha3::{Shake128, digest::{ExtendableOutput, Update, XofReader}};
+
     /// A custom type for storing auction's details
     #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
     #[cfg_attr(
@@ -21,7 +23,7 @@ mod tlock_proxy {
         asset_id: u32,
         owner: AccountId,
         deposit: Balance,
-        deadline: u64,
+        deadline: BlockNumber,
         published: Timestamp,
         status: u8,
         bids: u8,
@@ -122,17 +124,30 @@ mod tlock_proxy {
         #[ink(message)]
         pub fn new_auction(
             &mut self,
-            name: Vec<u8>,
-            asset_id: u32,
-            deadline: u64,
+            name: [u8;48],
+            deadline: BlockNumber,
             deposit: Balance,
         ) -> Result<AccountId> {
             let caller = self.env().caller();
             let contract_acct_id = self.env().account_id();
+            // random asset id creation with on-chain randomness
+            let mut seed = self.env().extension().secret();
+            seed.clone().iter().enumerate().for_each(|(i, bit)| {
+                seed[i] = *bit ^ name[i];
+            });
+
+            let mut hasher = Shake128::default();
+            let bytes = seed.to_vec();
+            hasher.update(&bytes.clone());
+            let mut reader = hasher.finalize_xof();
+            let mut asset_id_bytes = [0u8; 4];
+            reader.read(&mut asset_id_bytes);
+            let asset_id = u32::from_le_bytes(asset_id_bytes);
+
             // try to mint the asset
             let mut erc721_contract: Erc721Ref =
                 ink::env::call::FromAccountId::from_account_id(self.erc721);
-            let _ = erc721_contract
+            erc721_contract
                 .mint(asset_id)
                 .map_err(|_| Error::NFTMintFailed)?;
 
@@ -141,10 +156,9 @@ mod tlock_proxy {
                 .code_hash(self.auction_contract_code_hash)
                 .salt_bytes(name.as_slice())
                 .instantiate();
-            // TODO: perform some basic validations
             let account_id = auction_contract.to_account_id();
             let auction = AuctionDetails {
-                name: name.clone(),
+                name: name.to_vec().clone(),
                 auction_id: account_id,
                 asset_id,
                 owner: caller,
@@ -157,7 +171,7 @@ mod tlock_proxy {
             self.auctions.push(auction);
             Ok(account_id)
         }
-
+        
         /// sends a bid to a specific auction (auction_id) if the status and dealine are valid
         /// and all conditions are satisfied
         #[ink(message, payable)]
@@ -186,7 +200,7 @@ mod tlock_proxy {
                     self.auctions[auction_data.2] = new_auction_data;
                     // update the bids map
                     self.bids.push(Bid {
-                        auction_id: auction_id,
+                        auction_id,
                         bidder: caller,
                     });
                 })
@@ -336,9 +350,9 @@ mod tlock_proxy {
 
         /// check if the deadline has already passed
         /// returns true if a block is present at the slot, false otherwise
-        fn is_deadline_future(&self, deadline: u64) -> bool {
+        fn is_deadline_future(&self, deadline: BlockNumber) -> bool {
             let current_block: u32 = self.env().block_number();
-            (current_block as u64) < deadline
+            current_block < deadline
         }
 
         /// fetch an child auction by its account id
@@ -356,7 +370,7 @@ mod tlock_proxy {
                 .find(|(_, x)| x.auction_id == auction_id)
                 .ok_or(Error::AuctionDoesNotExist)?;
             let auction_contract: VickreyAuctionRef =
-                ink::env::call::FromAccountId::from_account_id(auction.auction_id.clone());
+                ink::env::call::FromAccountId::from_account_id(auction.auction_id);
             // clippy calls out the next line, but it must be cloned (since AuctionResult does not implement Copy, because Vec does not)
             Ok((auction.clone(), auction_contract, index))
         }
@@ -487,7 +501,7 @@ mod tlock_proxy {
                 asset_id: 1u32,
                 owner: accounts.alice,
                 deposit: 1,
-                deadline: 1u64,
+                deadline: 1u32,
                 status: 0,
                 bids: 0,
                 published: 0,
