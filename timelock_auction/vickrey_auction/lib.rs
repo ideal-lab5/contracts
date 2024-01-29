@@ -257,23 +257,23 @@ mod vickrey_auction {
             let revealed_bids = vec![
                 RevealedBid {
                     bidder: accounts.alice,
-                    bid: b1,
+                    bid: 1,
                 },
                 RevealedBid {
                     bidder: accounts.bob,
-                    bid: b2,
+                    bid: 3,
                 },
                 RevealedBid {
                     bidder: accounts.charlie,
-                    bid: b3,
+                    bid: 2,
                 },
             ];
-            foreach(revealed_bids, |bid| {
+            revealed_bids.iter().for_each(|bid| {
                 let res = auction.save_revealed_bid(bid.clone());
-                assert!(!res.is_err());
+                assert!(res.is_ok());
             });
             let res = auction.complete();
-            assert!(!res.is_err());
+            assert!(res.is_ok());
             assert_eq!(auction.revealed_bids[0], revealed_bids[0].clone());
             assert_eq!(auction.revealed_bids[1], revealed_bids[1].clone());
             assert_eq!(auction.revealed_bids[2], revealed_bids[2]);
@@ -282,17 +282,17 @@ mod vickrey_auction {
                 auction.winner,
                 Some(AuctionResult {
                     winner: accounts.bob,
-                    debt: b1
+                    debt: 2
                 })
             )
         }
 
-        fn sha256(b: u128) -> Vec<u8> {
-            let mut hasher = sha3::Sha3_256::new();
-            let bytes = b.to_string();
-            hasher.update(bytes.clone());
-            hasher.finalize().to_vec()
-        }
+        // fn sha256(b: u128) -> Vec<u8> {
+        //     let mut hasher = sha3::Sha3_256::new();
+        //     let bytes = b.to_string();
+        //     hasher.update(bytes.clone());
+        //     hasher.finalize().to_vec()
+        // }
 
         // #[ink::test]
         // fn complete_auction_after_deadline() {
