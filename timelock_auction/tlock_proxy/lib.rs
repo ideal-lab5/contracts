@@ -1,4 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
+pub use self::tlock_proxy::{
+    TlockProxy,
+    TlockProxyRef,
+};
+
 use etf_contract_utils::ext::EtfEnvironment;
 
 #[ink::contract(env = EtfEnvironment)]
@@ -9,7 +14,10 @@ mod tlock_proxy {
     use ink::ToAccountId;
     use vickrey_auction::{RevealedBid, VickreyAuctionRef};
 
-    use sha3::{Shake128, digest::{ExtendableOutput, Update, XofReader}};
+    use sha3::{
+        digest::{ExtendableOutput, Update, XofReader},
+        Shake128,
+    };
 
     /// A custom type for storing auction's details
     #[derive(Clone, Debug, scale::Decode, scale::Encode, PartialEq)]
@@ -94,9 +102,11 @@ mod tlock_proxy {
         auction_contract_code_hash: Hash,
     }
 
-    /// A proposal has been accepted
     #[ink(event)]
-    pub struct Success {}
+    pub struct AuctionCreated {
+        #[ink(topic)]
+        auction_id: AccountId,
+    }
 
     impl TlockProxy {
         /// Constructor
@@ -124,7 +134,7 @@ mod tlock_proxy {
         #[ink(message)]
         pub fn new_auction(
             &mut self,
-            name: [u8;48],
+            name: [u8; 48],
             deadline: BlockNumber,
             deposit: Balance,
         ) -> Result<AccountId> {
@@ -169,16 +179,16 @@ mod tlock_proxy {
                 bids: 0,
             };
             self.auctions.push(auction);
+            ink::codegen::EmitEvent::<TlockProxy>::emit_event(self.env(), AuctionCreated {
+                auction_id: account_id,
+            });
             Ok(account_id)
         }
-        
+
         /// sends a bid to a specific auction (auction_id) if the status and dealine are valid
         /// and all conditions are satisfied
         #[ink(message, payable)]
-        pub fn bid(
-            &mut self,
-            auction_id: AccountId,
-        ) -> Result<()> {
+        pub fn bid(&mut self, auction_id: AccountId) -> Result<()> {
             let caller = self.env().caller();
             let mut auction_data = self.get_auction_by_auction_id(auction_id)?;
             if !self.is_deadline_future(auction_data.0.deadline) {
@@ -274,8 +284,12 @@ mod tlock_proxy {
             if self.is_deadline_future(auction_data.0.deadline) {
                 return Err(Error::AuctionInProgress);
             }
-            auction_data.1.save_revealed_bid(revealed_bid).map_err(|_| Error::Other)?;
+            auction_data
+                .1
+                .save_revealed_bid(revealed_bid)
+                .map_err(|_| Error::Other)?;
             Ok(())
+        
         }
 
         /// get the winner and payment owed
@@ -291,6 +305,16 @@ mod tlock_proxy {
             }
             Err(Error::NoWinnerDetermined)
         }
+
+        /// get the winner and payment owed
+        /// by the winner of an auction
+        #[ink(message)]
+        pub fn get_latest_auction(
+            &self,
+        ) -> Result<AccountId> {
+            self.auctions.last().map(|x| x.auction_id).ok_or(Error::AuctionDoesNotExist)
+        }
+
 
         /// Fetch a list of all auctions
         #[ink(message)]
