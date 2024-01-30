@@ -170,9 +170,6 @@ mod vickrey_auction {
         ///
         #[ink(message)]
         pub fn complete(&mut self) -> Result<(), Error> {
-            if self.revealed_bids.len() != self.participants.len() {
-                return Err(Error::WaitingReveals);
-            }
             let mut highest_bid: u128 = 0;
             let mut second_highest_bid: u128 = 0;
             let mut winner: Option<AccountId> = None;
