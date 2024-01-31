@@ -1,0 +1,23 @@
+thread 'main' panicked at library/std/src/io/stdio.rs:1019:9:
+failed printing to stderr: Broken pipe (os error 32)
+stack backtrace:
+   0:        0x10107c0d0 - <unknown>
+   1:        0x1010cfca4 - <unknown>
+   2:        0x101071a4c - <unknown>
+   3:        0x10107bf10 - <unknown>
+   4:        0x10107ec84 - <unknown>
+   5:        0x10107e954 - <unknown>
+   6:        0x1095e9fbc - <unknown>
+   7:        0x10107f484 - <unknown>
+   8:        0x10107f24c - <unknown>
+   9:        0x10107c55c - <unknown>
+  10:        0x10107efb8 - <unknown>
+  11:        0x1010fb030 - <unknown>
+  12:        0x101070810 - <unknown>
+  13:        0x1001b1f6c - core[3b933c326bceddf3]::ptr::drop_in_place::<rustfmt_nightly[2b2ca280fb446da5]::config::PartialConfig>
+  14:        0x1001b1518 - core[3b933c326bceddf3]::ptr::drop_in_place::<core[3b933c326bceddf3]::panic::unwind_safe::AssertUnwindSafe<core[3b933c326bceddf3]::cell::RefCell<regex[bc9d445af832f08a]::exec::ProgramCacheInner>>>
+  15:        0x1001af898 - core[3b933c326bceddf3]::ptr::drop_in_place::<rustc_ast[8f484f3ee1620998]::ast::AnonConst>
+  16:        0x1001bf838 - rustfmt_nightly[2b2ca280fb446da5]::formatting::format_project::<rustfmt_nightly[2b2ca280fb446da5]::Session<std[740ed17398edf853]::io::stdio::Stdout>>
+  17:        0x1001be810 - <&str as core[3b933c326bceddf3]::any::Any>::type_id
+  18:        0x101064900 - <unknown>
+  19:        0x1001b2a48 - rustfmt[27fa7eec3e7ece7]::main
