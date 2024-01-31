@@ -12,8 +12,8 @@ scale-info = { version = "2.6", default-features = false, features = ["derive"],
 # local dependencies
 vickrey_auction = { path = "../vickrey_auction", default-features = false, features = ["ink-as-dependency"] }
 erc721 = { path = "../erc721", default-features = false, features = ["ink-as-dependency"] }
-# etf-contract-utils = { version = "0.1.0", git = "https://github.com/ideal-lab5/contracts.git", default-features = false, features = ["ink-as-dependency"] }
-etf-contract-utils = { path = "../../common", default-features = false, features = ["ink-as-dependency"] }
+etf-contract-utils = { git = "https://github.com/ideal-lab5/contracts.git", default-features = false, features = ["ink-as-dependency"] }
+# etf-contract-utils = { path = "../../common", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
