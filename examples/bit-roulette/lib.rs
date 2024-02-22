@@ -140,7 +140,7 @@ mod bit_roulette {
             // TODO: should check that it is not all 0's (invalid slot)
             let mut parity: u8 = self.env()
                 .extension()
-                .secret(expected_next_slot_number)
+                .secret()
                 .to_vec()
                 .iter()
                 .sum();

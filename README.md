@@ -52,7 +52,7 @@ mod your_smart_contract {
 ``` rust
 self.env()
     .extension()
-    .secret(slot_number);
+    .secret();
 ```
 
 

@@ -316,7 +316,7 @@ mod transmutation {
             let mut transmutation = Transmutation::default();
             assert_eq!(transmutation.swap_lookup(accounts.alice, accounts.bob), Err(Error::SwapDNE));
             assert_eq!(transmutation.claimed_assets.len(), 0);
-            if let Err(e) = transmutation.random_seed([5;48]) {
+            if let Err(_) = transmutation.random_seed([5;48]) {
                 panic!("{:?}", "The test should pass");
             }
 
@@ -337,25 +337,23 @@ mod transmutation {
 
             let deadline = 1;
             
-            if let Err(e) = transmutation.random_seed([5;48]) {
+            if let Err(_) = transmutation.random_seed([5;48]) {
                 panic!("{:?}", "The test should pass");
             }
 
-            let alice_asset = transmutation.registry_lookup().unwrap();
+            let alice_asset = transmutation.registry_lookup(accounts.alice).unwrap();
 
             // then bob creates one
             ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            if let Err(e) = transmutation.random_seed([2;48]) {
+            if let Err(_) = transmutation.random_seed([2;48]) {
                 panic!("{:?}", "The test should pass");
             }
 
-            let bob_asset = transmutation.registry_lookup().unwrap();
+            let bob_asset = transmutation.registry_lookup(accounts.bob).unwrap();
 
             ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.alice);
-            if let Err(e) = transmutation.new_swap(
-                alice_asset.clone(), 
-                accounts.bob, 
-                bob_asset.clone(), 
+            if let Err(_) = transmutation.try_new_swap(
+                accounts.bob,
                 deadline
             ) {
                 panic!("{:?}", "The test should pass");
@@ -380,25 +378,19 @@ mod transmutation {
 
             let deadline = 1;
             
-            if let Err(e) = transmutation.random_seed([5;48]) {
+            if let Err(_) = transmutation.random_seed([5;48]) {
                 panic!("{:?}", "The test should pass");
             }
-
-            let alice_asset = transmutation.registry_lookup().unwrap();
 
             // then bob creates one
             ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            if let Err(e) = transmutation.random_seed([2;48]) {
+            if let Err(_) = transmutation.random_seed([2;48]) {
                 panic!("{:?}", "The test should pass");
             }
-
-            let bob_asset = transmutation.registry_lookup().unwrap();
-
+            
             ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.alice);
-            if let Err(e) = transmutation.new_swap(
-                alice_asset.clone(), 
-                accounts.bob, 
-                bob_asset.clone(), 
+            if let Err(_) = transmutation.try_new_swap(
+                accounts.bob,
                 deadline
             ) {
                 panic!("{:?}", "The test should pass");
@@ -410,12 +402,12 @@ mod transmutation {
             // };
 
             ink_env::test::advance_block::<ink_env::DefaultEnvironment>();
-            if let Err(e) = transmutation.transmute(accounts.bob) {
+            if let Err(_) = transmutation.transmute() {
                 panic!("{:?}", "The test should pass");
             }
 
             ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-            if let Err(e) = transmutation.transmute(accounts.alice) {
+            if let Err(_) = transmutation.transmute() {
                 panic!("{:?}", "The test should pass");
             }
             // let merkle_root = Transmutation::calculate_merkle_root(accounts.alice, accounts.bob).unwrap();

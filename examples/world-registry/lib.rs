@@ -6,9 +6,6 @@ use etf_contract_utils::ext::EtfEnvironment;
 mod world_regsistry {
     use ink::storage::Mapping;
     use crate::{EtfEnvironment, Vec};
-
-    /// the type to represent the 48 bits of randomness we get from etfn
-    pub type Randomness = [u8;48];
     /// an identifier for worlds
     pub type WorldId = [u8;48];
 
@@ -45,7 +42,7 @@ mod world_regsistry {
     impl WorldRegistry {
     
         #[ink(constructor)]
-        pub fn new(value: u8) -> Self {
+        pub fn new() -> Self {
             Self {
                 ownership: Mapping::default(),
                 worlds: Mapping::default(),
@@ -69,14 +66,14 @@ mod world_regsistry {
             // get the latest slot secret as a source of randomness
             let mut seed: WorldId = self.env()
                 .extension()
-                .secret(None);
+                .secret();
             // we want to try to generate unique noise
             seed.clone().iter().enumerate().for_each(|(i, bit)| {
                 seed[i] = *bit ^ input_seed[i];
             });
             
             // this is EXTREMELY unlikely to happen
-            if let Some(world) = self.worlds.get(seed) {
+            if let Some(_world) = self.worlds.get(seed) {
                 return Err(Error::DuplicateWorldId);
             }
             self.worlds.insert(seed, &World { owner: caller, name });
@@ -94,12 +91,12 @@ mod world_regsistry {
 
     #[cfg(test)]
     mod tests {
-        use super::*;
+        // use super::*;
 
-        #[ink::test]
-        fn it_works() {
-            let mut contract = Template::new(1u8);
-            assert_eq!(contract.get_value(), 1u8);
-        }
+        // #[ink::test]
+        // fn it_works() {
+        //     let mut contract = Template::new(1u8);
+        //     assert_eq!(contract.get_value(), 1u8);
+        // }
     }
 }

@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "./timelock_auction/erc721",
+    "./timelock_auction/vickrey_auction",
+    "./timelock_auction/tlock_proxy",
+    "./examples/bit-roulette",
+    "./examples/transmutation",
+    "./examples/world-registry",
+]
