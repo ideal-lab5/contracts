@@ -1,12 +1,12 @@
 use ink_env::Environment;
 
 /// the drand chain extension
-#[ink::chain_extension]
+#[ink::chain_extension(extension = 12)]
 pub trait Drand {
     type ErrorCode = DrandErrorCode;
 
-    #[ink(extension = 1101, handle_status = false)]
-    fn random() -> [u8;32];
+    #[ink(function = 1101, handle_status = false)]
+    fn random(block_number: <ink_env::DefaultEnvironment as Environment>::BlockNumber) -> [u8;32];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -59,5 +59,5 @@ impl Environment for DrandEnvironment {
     type BlockNumber = <ink_env::DefaultEnvironment as Environment>::BlockNumber;
     type Timestamp = <ink_env::DefaultEnvironment as Environment>::Timestamp;
 
-    type ChainExtension = Drand;
+    type ChainExtension = crate::Drand;
 }
