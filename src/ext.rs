@@ -1,9 +1,9 @@
 use ink_env::Environment;
 
-/// the etf chain extension
+/// the drand chain extension
 #[ink::chain_extension]
 pub trait Drand {
-    type ErrorCode = EtfErrorCode;
+    type ErrorCode = DrandErrorCode;
 
     #[ink(extension = 1101, handle_status = false)]
     fn random() -> [u8;32];
@@ -49,7 +49,7 @@ impl ink_env::chain_extension::FromStatusCode for DrandErrorCode {
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum DrandEnvironment {}
 
-impl Environment for EtfEnvironment {
+impl Environment for DrandEnvironment {
     const MAX_EVENT_TOPICS: usize =
         <ink_env::DefaultEnvironment as Environment>::MAX_EVENT_TOPICS;
 
@@ -59,5 +59,5 @@ impl Environment for EtfEnvironment {
     type BlockNumber = <ink_env::DefaultEnvironment as Environment>::BlockNumber;
     type Timestamp = <ink_env::DefaultEnvironment as Environment>::Timestamp;
 
-    type ChainExtension = ETF;
+    type ChainExtension = Drand;
 }
