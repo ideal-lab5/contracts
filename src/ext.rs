@@ -6,7 +6,7 @@ pub trait Drand {
     type ErrorCode = DrandErrorCode;
 
     #[ink(function = 1101, handle_status = false)]
-    fn random(block_number: <ink_env::DefaultEnvironment as Environment>::BlockNumber) -> [u8;32];
+    fn random(block_number: Option<<ink_env::DefaultEnvironment as Environment>::BlockNumber>) -> [u8;32];
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
