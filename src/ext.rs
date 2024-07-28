@@ -39,7 +39,7 @@ impl ink_env::chain_extension::FromStatusCode for DrandErrorCode {
     fn from_status_code(status_code: u32) -> Result<(), Self> {
         match status_code {
             0 => Ok(()),
-            1101 => Err(Self::InvalidSlot),
+            1101 => Err(Self::InvalidBlockNumber),
             _ => panic!("encountered unknown status code"),
         }
     }
