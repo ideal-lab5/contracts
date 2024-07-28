@@ -24,3 +24,6 @@ cargo contract instantiate ./target/ink/block_defender/block_defender.contract -
 
 
 cargo contract instantiate ./target/ink/transmutation.contract --constructor new --suri //Alice --url ws://127.0.0.1:9944 -x
+
+
+cargo contract instantiate ./target/ink/gatewayu.contract --constructor new --args 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY --suri //Alice --url ws://127.0.0.1:9944 -x

@@ -1,13 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 use ink::prelude::vec::Vec;
-use etf_contract_utils::ext::EtfEnvironment;
+use idl_contract_extension::ext::DrandEnvironment;
 
-#[ink::contract(env = EtfEnvironment)]
+#[ink::contract(env = DrandEnvironment)]
 mod vickrey_auction {
     use ink::storage::Mapping;
     use scale::alloc::string::ToString;
     use sha3::Digest;
-    use crate::EtfEnvironment;
+    use crate::DrandEnvironment;
 
 
     #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
@@ -30,9 +30,10 @@ mod vickrey_auction {
     
         /// Constructor that initializes a new auction
         #[ink(constructor)]
-        pub fn new(value: u8) -> Self {
+        pub fn new() -> Self {
+            let value = self.env().ext().random();
             Self {
-                value
+                value: value[0]
             }
         }
 

@@ -1,20 +1,19 @@
-# ETF Contracts Toolkit
+# Ideal Labs Contracts Toolkit
 
 [![Built with ink!](https://raw.githubusercontent.com/paritytech/ink/master/.images/badge.svg)](https://github.com/paritytech/ink)
 
-Tools for building smart contracts on the [ETF network](https://etf.idealabs.network).
-
-The ETF consensus mechanism enables:
-
-- on-chain randomness for smart contracts
-- dapps based on delayed transactions
+Tools and examples for building ink! smart contracts that use publicly verifiable on-chain randomness.
 
 ## Usage
 
 Follow the [ink! documentation](https://paritytech.github.io/ink-docs/getting-started/setup) for a complete guide on getting started.
 
+To use this library, you must be running a node that supports:
+- arkworks host functions
+- the drand bridge pallet
+- ink! smart contracts
 
-Contracts built with this library will only work when deployed to the ETF network. Deployment instructions follow standard ink! contract deployment instruction. The easiest way to deploy your contract is with the [cargo contract](https://github.com/paritytech/cargo-contract) tool:
+You can find an example node [here](https://github.com/ideal-lab5/pallet-drand/tree/main/substrate-node-template).
 
 ``` shell
 cargo contract instantiate myContract.contract --constructor new \
@@ -22,27 +21,31 @@ cargo contract instantiate myContract.contract --constructor new \
 --suri //Alice --url ws://127.0.0.1:9944 -x
 ```
 
+
+> examples are under construction
+<!-- Checkout the [examples](./examples/) to get started. The [template](./template/) can be cloned as a jumping off point for new contracts. -->
+
 ### Configuration
 
-To use in a smart contract, at `etf-contract-utils` to the cargo.toml
+To use in a smart contract, at `idl-contract-extension` to the cargo.toml
 ```toml
 [dependencies]
-etf-contract-utils = { git = "https://github.com/ideal-lab5/contracts", default-features = false, features = ["ink-as-dependency"] }
+idl-contract-extension = { git = "https://github.com/ideal-lab5/contracts.git", default-features = false, features = ["ink-as-dependency"] }
 
 [features]
 std = [
     ...
-    "etf-contract-utils/std",
+    "idl-contract-extension/std",
 ]
 ```
 
-and configure the contract environment to use the `EtfEnvironment`
+and configure the contract environment to use the `DrandEnvironment`
 
 ``` rust
-use etf_contract_utils::ext::EtfEnvironment;
-#[ink::contract(env = EtfEnvironment)]
+use idl_contract_extension::ext::DrandEnvironment;
+#[ink::contract(env = DrandEnvironment)]
 mod your_smart_contract {
-    use crate::EtfEnvironment;
+    use crate::DrandEnvironment;
     ...
 }
 ```
@@ -52,11 +55,8 @@ mod your_smart_contract {
 ``` rust
 self.env()
     .extension()
-    .secret();
+    .random();
 ```
-
-
-Checkout the [examples](./examples/) to get started. The [template](./template/) can be cloned as a jumping off point for new contracts.
 
 ### Build
 
@@ -78,14 +78,14 @@ cargo +nightly test
 To test functions that call the chain extension, it can be mocked like:
 
 ``` rust
-struct MockETFExtension;
-impl ink_env::test::ChainExtension for MockETFExtension {
+struct MockDrandExtension;
+impl ink_env::test::ChainExtension for MockDrandExtension {
     fn func_id(&self) -> u32 {
         1101
     }
 
     fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
-        let mut ret = [1;48];
+        let mut ret = [1;32];
         ret[0] = 0;
         scale::Encode::encode_to(&ret, output);
         0
