@@ -59,5 +59,5 @@ impl Environment for DrandEnvironment {
     type BlockNumber = <ink_env::DefaultEnvironment as Environment>::BlockNumber;
     type Timestamp = <ink_env::DefaultEnvironment as Environment>::Timestamp;
 
-    type ChainExtension = crate::Drand;
+    type ChainExtension = Drand;
 }
