@@ -1,14 +1,19 @@
+//! This is a template that demonstrates how to fetch the latest randomness from the drand bridge pallet.
+//! This contract demonstrates:
+//! 
+//!     1) how to configure a contract to use the required chain extension
+//!     2) how to read/write the latest randomness
+//! 
+
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
-use ink::prelude::vec::Vec;
-use etf_contract_utils::ext::EtfEnvironment;
+use idl_contract_extension::ext::DrandEnvironment;
 
-#[ink::contract(env = EtfEnvironment)]
-mod vickrey_auction {
-    use ink::storage::Mapping;
-    use scale::alloc::string::ToString;
-    use sha3::Digest;
-    use crate::EtfEnvironment;
+#[ink::contract(env = DrandEnvironment)]
+mod template {
+    use crate::DrandEnvironment;
 
+    /// a type to represent the randomness fetched from the pallet (32 bytes)
+    pub type Randomness = [u8;32];
 
     #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
     #[cfg_attr(
@@ -16,29 +21,45 @@ mod vickrey_auction {
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub enum Error {
-        /// the origin must match the configured proxy
         AnError,
     }
 
-    /// the auction storage
+    impl Default for Template {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     #[ink(storage)]
     pub struct Template {
-        value: u8,
+        // the latest random valued fetch by the contract
+        random: Randomness,
     }
 
     impl Template {
-    
-        /// Constructor that initializes a new auction
+        /// Constructor that initializes a new template
         #[ink(constructor)]
-        pub fn new(value: u8) -> Self {
+        pub fn new() -> Self {
             Self {
-                value
+                random: [0;32],
             }
         }
 
+        /// query the stored randomness
         #[ink(message)]
-        pub fn get_value(&self) -> u8 {
-            self.value.clone()
+        pub fn get_random(&self) -> [u8;32] {
+            self.random
+        }
+
+        /// mutate the random value stored in the contract
+        #[ink(message)]
+        pub fn mutate_random(&mut self) -> Result<(), Error> {
+            // fetch the latest randomness from the drand pallet
+            let random = self.env()
+                .extension()
+                .random();
+            self.random = random;
+            Ok(())
         }
     }
 
@@ -48,8 +69,42 @@ mod vickrey_auction {
 
         #[ink::test]
         fn it_works() {
-            let mut contract = Template::new(1u8);
-            assert_eq!(contract.get_value(), 1u8);
+            let contract = Template::new();
+            assert_eq!(contract.get_random(), [0u8;32]);
+        }
+
+        #[ink::test]
+        fn can_mutate_randomness() {
+            struct MockDrandExtension;
+            impl ink::env::test::ChainExtension for MockDrandExtension {
+                /// The static function id of the chain extension.
+                fn ext_id(&self) -> u16 {
+                    12
+                }
+
+                fn call(
+                    &mut self,
+                    _func_id: u16,
+                    _input: &[u8],
+                    output: &mut Vec<u8>,
+                ) -> u32 {
+                    let ret: [u8; 32] = [1; 32];
+                    ink::scale::Encode::encode_to(&ret, output);
+                    0
+                }
+            }
+
+            ink::env::test::register_chain_extension(MockDrandExtension);
+            ink::env::test::advance_block::<ink::env::DefaultEnvironment>();
+
+
+            let mut contract = Template::new();
+
+            assert_eq!(contract.get_random(), [0u8;32]);
+
+            assert!(contract.mutate_random().is_ok());
+
+            assert_eq!(contract.get_random(), [1u8;32]);
         }
     }
 }
