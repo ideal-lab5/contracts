@@ -15,14 +15,7 @@ To use this library, you must be running a node that supports:
 
 You can find an example node [here](https://github.com/ideal-lab5/pallet-drand/tree/main/substrate-node-template).
 
-``` shell
-cargo contract instantiate myContract.contract --constructor new \
---args some args here \
---suri //Alice --url ws://127.0.0.1:9944 -x
-```
-
-
-> examples are under construction
+> All contracts under the examples folder are outdated and under construction.
 <!-- Checkout the [examples](./examples/) to get started. The [template](./template/) can be cloned as a jumping off point for new contracts. -->
 
 ### Configuration
@@ -72,29 +65,6 @@ Unit tests can be run with
 ``` rust
 cargo +nightly test
 ```
-
-##### Testing with the chain extension
-
-To test functions that call the chain extension, it can be mocked like:
-
-``` rust
-struct MockDrandExtension;
-impl ink_env::test::ChainExtension for MockDrandExtension {
-    fn func_id(&self) -> u32 {
-        1101
-    }
-
-    fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
-        let mut ret = [1;32];
-        ret[0] = 0;
-        scale::Encode::encode_to(&ret, output);
-        0
-    }
-}
-
-ink_env::test::register_chain_extension(MockETFExtension);
-```
-
 
 #### E2E tests
 

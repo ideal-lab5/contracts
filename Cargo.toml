@@ -2,7 +2,8 @@
 resolver = "2"
 
 members = [
-    "./src"
+    "./src",
+    "./template"
     # "./timelock_auction/erc721",
     # "./timelock_auction/vickrey_auction",
     # "./timelock_auction/tlock_proxy",
