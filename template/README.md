@@ -1,6 +1,6 @@
 # Template
 
-This is a template to get you started with building contracts on the ETF network.
+This is a template to get you started with building contracts that use verifiable randomness.
 
 To build and test this contract, use the cargo contract tool.
 
