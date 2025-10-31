@@ -65,10 +65,10 @@ export default function Plinko() {
       bet
     ) as any;
 
-    setTransactionStatus("Waiting for signature...");
-
     const tx = contract.tx.joinGame({gasLimit: gasRequired, value: gameState.betAmount}, gameState.betAmount)
     tx.signAndSend(alice, (result) => {})
+
+    setTransactionStatus("Waiting for randomness...");
 
     const unsubscribe: any = await idncClient.query.system.events((events: any[]) => {
       events.forEach((record) => {
