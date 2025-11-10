@@ -175,7 +175,7 @@ const VerifiableFlipperApp = () => {
   const [isFlipping, setIsFlipping] = useState(false);
   const [currentFlip, setCurrentFlip] = useState(null);
 
-  const CONTRACT_ADDRESS = '1eRQAn6EyYzzUU325yLbq92U7EZNPi7T2XCa55QtLrGWqTp';
+  const CONTRACT_ADDRESS = '12tNihwnF856fNKnbtbu96uFRCg8idRAKDUs8ztDm1XWXxkr';
 
   useEffect(() => {
     connectWallet();
