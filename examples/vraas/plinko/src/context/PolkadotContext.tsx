@@ -39,6 +39,7 @@ export function PolkadotProvider({ children }: {children: React.ReactNode }) {
             try {
                 console.log("initializing client")
                 await cryptoWaitReady();
+                
                 const wsProvider = new WsProvider('ws://127.0.0.1:9944')
 
                 wsProvider.on('connected', () => console.log('WS Connected'))

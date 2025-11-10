@@ -175,7 +175,7 @@ const VerifiableFlipperApp = () => {
   const [isFlipping, setIsFlipping] = useState(false);
   const [currentFlip, setCurrentFlip] = useState(null);
 
-  const CONTRACT_ADDRESS = '1eRQAn6EyYzzUU325yLbq92U7EZNPi7T2XCa55QtLrGWqTp';
+  const CONTRACT_ADDRESS = '12tNihwnF856fNKnbtbu96uFRCg8idRAKDUs8ztDm1XWXxkr';
 
   useEffect(() => {
     connectWallet();
@@ -197,13 +197,15 @@ const VerifiableFlipperApp = () => {
 
     try {
       await cryptoWaitReady();
-      const wsProvider = new WsProvider('ws://127.0.0.1:9944');
+      // const wsProvider = new WsProvider('ws://127.0.0.1:9944');
+      const wsProvider = new WsProvider('wss://idnc0-testnet.idealabs.network:443');
       const api = await ApiPromise.create({ provider: wsProvider });
 
       console.log('API is ready');
 
       const keyring = new Keyring({ type: 'sr25519' });
       const alice = keyring.addFromUri('//Alice', { name: 'Alice' });
+      console.log(alice.address);
 
       // Create contract instance
       const contract = new ContractPromise(api, contractMetadata, CONTRACT_ADDRESS);
@@ -213,6 +215,7 @@ const VerifiableFlipperApp = () => {
       setContract(contract);
 
       setTimeout(async () => {
+        console.log('connected as alice')
         setStatus('Connected as Alice');
         setLoading(false);
 
