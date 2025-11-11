@@ -121,10 +121,10 @@ mod lootbox {
                 // Update reward stats
                 let mut stats = self.user_rewards.get(user).unwrap_or_default();
                 match reward {
-                    Reward::Bronze => stats.bronze.saturating_add(1),
-                    Reward::Silver => stats.silver.saturating_add(1),
-                    Reward::Gold => stats.gold.saturating_add(1),
-                    Reward::Diamond => stats.diamond.saturating_add(1),
+                    Reward::Bronze => stats.bronze = stats.bronze.saturating_add(1),
+                    Reward::Silver => stats.silver = stats.silver.saturating_add(1),
+                    Reward::Gold => stats.gold = stats.gold.saturating_add(1),
+                    Reward::Diamond => stats.diamond = stats.diamond.saturating_add(1),
                 };
 
                 self.user_rewards.insert(user, &stats);
