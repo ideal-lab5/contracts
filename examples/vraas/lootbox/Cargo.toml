@@ -1,0 +1,24 @@
+[package]
+name = "lootbox"
+version = "0.1.0"
+authors = ["[your_name] <[your_email]>"]
+edition = "2021"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.7.4", default-features = false, features = [
+    "derive",
+] }
+idn-contracts = { version = "0.1.0", default-features = false }
+ink = { version = "5.1.1", default-features = false }
+
+[dev-dependencies]
+ink_e2e = { version = "5.1.1" }
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = ["codec/std", "idn-contracts/std", "ink/std"]
+ink-as-dependency = []
+e2e-tests = []

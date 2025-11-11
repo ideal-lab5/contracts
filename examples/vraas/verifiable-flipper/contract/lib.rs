@@ -106,7 +106,7 @@ mod coin_flip {
                
                 if won {
                     round_winners.push(*player);
-                    // Uncomment to transfer winnings:
+                    // uncomment this to reward based on the bet
                     // self.env().transfer(*player, bet.saturating_mul(2)).ok();
                 }
                
